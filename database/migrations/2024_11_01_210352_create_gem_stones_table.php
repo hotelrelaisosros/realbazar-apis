@@ -7,11 +7,7 @@ use App\Enums\GemStoneFacting;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     *
-     * @return void
-     */
+
     public function up()
     {
         Schema::create('gem_stones', function (Blueprint $table) {

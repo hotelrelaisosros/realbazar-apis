@@ -182,6 +182,23 @@ Route::prefix('api/v1')->group(function () {
             Route::put('{birthstones}', [Api\BirthStoneController::class, 'update']);
             Route::delete('{birthstones}', [Api\BirthStoneController::class, 'destroy']);
         });
+
+        Route::prefix('gem_stones_colors')->group(function () {
+            Route::get('/', [Api\GemStoneColorController::class, 'index']);
+            Route::get('{gem_stones_colors}', [Api\GemStoneColorController::class, 'show']);
+            Route::post('/', [Api\GemStoneColorController::class, 'store']);
+            Route::put('{gem_stones_colors}', [Api\GemStoneColorController::class, 'update']);
+            Route::delete('{gem_stones_colors}', [Api\GemStoneColorController::class, 'destroy']);
+        });
+
+
+        Route::prefix('gem_stones')->group(function () {
+            Route::get('/', [Api\GemStoneController::class, 'index']);
+            Route::get('{gem_stones}', [Api\GemStoneController::class, 'show']);
+            Route::post('/', [Api\GemStoneController::class, 'store']);
+            Route::put('{gem_stones}', [Api\GemStoneController::class, 'update']);
+            Route::delete('{gem_stones}', [Api\GemStoneController::class, 'destroy']);
+        });
     });
 });
 Route::get('/', function () {
