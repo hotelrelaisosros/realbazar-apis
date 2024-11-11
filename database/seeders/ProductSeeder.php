@@ -191,19 +191,32 @@ class ProductSeeder extends Seeder
             $product->desc = "V-Neck T-Shirt";
             $product->save();
 
+
+            $imageCount = rand(1, 3);
+            for ($j = 0; $j < $imageCount; $j++) {
+                $productImage = new ProductImage();
+                $productImage->product_id = $product->id;
+                $productImage->image = 'image_' . $j . '_for_product_' . $product->id . '.jpg';
+                $productImage->image_collection = json_encode(['image1.jpg', 'image2.jpg', 'image3.jpg']); // Example collection
+                $productImage->small_image = 'small_image_' . $j . '_for_product_' . $product->id . '.jpg';
+                $productImage->name = 'Product Image ' . ($j + 1);
+                $productImage->save();
+            }
+
+
             // Create ProductEnum for each product except one
             if ($i !== 0) {
                 $productEnum = ProductEnum::create([
                     'metal_types' => json_encode(['1', '2']),
                     'gem_shape_id' => 1,
                     'default_metal_id' => 2,
-                    'band_width_ids' => implode(',', BandWidth::pluck('id')->toArray()),
-                    'accent_stone_type_ids' => implode(',', AccentStoneTypes::pluck('id')->toArray()),
-                    'setting_height_ids' => implode(',', SettingHeight::pluck('id')->toArray()),
-                    'prong_style_ids' => implode(',', ProngStyle::pluck('id')->toArray()),
-                    'ring_size_ids' => implode(',', RingSize::pluck('id')->toArray()),
-                    'bespoke_customization_ids' => implode(',', BespokeCustomization::pluck('id')->toArray()),
-                    'birth_stone_ids' => implode(',', BirthStone::pluck('id')->toArray()),
+                    'band_width_ids' => json_encode(BandWidth::pluck('id')->toArray()),
+                    'accent_stone_type_ids' => json_encode(AccentStoneTypes::pluck('id')->toArray()),
+                    'setting_height_ids' => json_encode(SettingHeight::pluck('id')->toArray()),
+                    'prong_style_ids' => json_encode(ProngStyle::pluck('id')->toArray()),
+                    'ring_size_ids' => json_encode(RingSize::pluck('id')->toArray()),
+                    'bespoke_customization_ids' => json_encode(BespokeCustomization::pluck('id')->toArray()),
+                    'birth_stone_ids' => json_encode(BirthStone::pluck('id')->toArray()),
                     'product_id' => $product->id
                 ]);
 

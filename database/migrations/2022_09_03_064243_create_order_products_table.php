@@ -25,13 +25,24 @@ return new class extends Migration
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
             $table->foreign('product_id')->references('id')->on('products');
 
-            $table->string('text_engraving')->nullable();
+            $table->unsignedBigInteger('metal_type_id')->nullable();
 
-            $table->string('metal_karat')->nullable();
-            $table->string('band_width')->nullable();
-            $table->string('setting_height')->nullable();
-            $table->string('ring_size')->nullable();
-            $table->string('prong_style')->nullable();
+            $table->unsignedBigInteger('gem_shape_id')->nullable();
+            $table->unsignedBigInteger('band_width_id')->nullable();
+            $table->unsignedBigInteger('accent_stone_type_id')->nullable();
+            $table->unsignedBigInteger('setting_height_id')->nullable();
+            $table->unsignedBigInteger('prong_style_id')->nullable();
+            $table->unsignedBigInteger('ring_size_id')->nullable();
+            $table->unsignedBigInteger('bespoke_customization_types_id')->nullable();
+            $table->unsignedBigInteger('birth_stone_id')->nullable();
+            $table->unsignedBigInteger('gem_stone_id')->nullable();
+            $table->unsignedBigInteger('gem_stone_color_id')->nullable();
+
+
+            // Engraved text column
+            $table->string('engraved_text')->nullable();
+            $table->string('metal_type_karat')->nullable();
+
 
             $table->timestamps();
         });

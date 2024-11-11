@@ -9,6 +9,21 @@ use App\Models\Order;
 use App\Models\OrderProduct;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\Gemshape;
+use App\Models\AccentStoneTypes;
+use App\Models\BandWidth;
+use App\Models\BespokeCustomization;
+use App\Models\BespokeCustomizationType;
+use App\Models\BirthStone;
+use App\Models\MetalKerat;
+use App\Models\SettingHeight;
+use App\Models\ProngStyle;
+use App\Models\RingSize;
+use App\Models\GemStoneColor;
+use App\Models\GemStone;
+
+
+use App\Models\ProductEnum;
 use Carbon\Carbon;
 use Error;
 use Illuminate\Http\Request;
@@ -24,6 +39,129 @@ use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
+    protected function formatImageUrl($imagePath)
+    {
+        if (!str_starts_with($imagePath, 'https://')) {
+            return url('storage/' . $imagePath);
+        }
+
+        return $imagePath;
+    }
+
+    public function order(Request $request)
+    {
+        if (!empty($request->order)) {
+            try {
+                DB::beginTransaction();
+                $order_ids = [];
+                $total = 0;
+                $latestOrderId = 0;
+                $latestOrder = Order::orderBy('created_at', 'DESC')->first();
+                foreach ($request->order as $key => $orders) {
+                    if (is_object($orders)) $orders = $orders->toArray();
+                    $order = new Order();
+
+                    $order->user_id = auth()->user()->id;
+                    $order->seller_id = $orders['sellerId'];
+                    if (empty($latestOrder)) $latestOrderId = 0;
+                    else $latestOrderId = $latestOrder->id;
+                    $order->order_number = '#' . str_pad($latestOrderId + 1, 8, "0", STR_PAD_LEFT);
+                    $order->customer_name = $orders['name'];
+                    $order->email = $orders['email'];
+                    $order->phone = $orders['phone'];
+                    $order->delivery_address = $orders['address'];
+                    $order->order_date = Carbon::now();
+                    if (isset($orders['pay_status']) && $orders['pay_status'] == 'unpaid') $order->pay_status = 'unpaid';
+                    // $order->area = $orders['area'];
+                    // $order->city = $orders['city'];
+                    // $order->gross_amount = $orders['gross_amount'];
+                    // $order->net_amount = $orders['net_amount'];
+                    // $order->note = $orders['note'];
+                    $order->save();
+
+                    $order_ids[] = $order->id;
+                    if (!empty($orders['product'])) {
+                        foreach ($orders['product'] as $key => $product) {
+                            if (is_object($product)) $product = $product->toArray();
+                            $product_price = Product::find($product['id']);
+                            if ($product_price) {
+
+                                $order_product = new OrderProduct();
+                                $order_product->order_id = $order->id;
+                                $order_product->product_id = $product['id'];
+                                $order_product->qty = $product['product_selected_qty'];
+                                $order_product->size = $product['size'];
+                                $order_product->product_price = $product['product_price'];
+                                $order_product->subtotal = $product['product_selected_qty'] * $product['product_price'];
+                                $discount = $product_price->discount_price ? $product_price->discount_price * $product['product_selected_qty'] : 0;
+
+                                $order_product->discount = $discount;
+
+                                //get product enums
+                                if (!empty($product["customizable"])) {
+
+                                    $order_product->metal_type_id = $product["customizable"]["metal_type_id"] ?? null;
+                                    $order_product->metal_type_karat = $product["customizable"]["metal_type_karat"] ?? null;
+                                    $order_product->gem_shape_id = $product["customizable"]["gem_shape_id"] ?? null;
+                                    $order_product->band_width_id = $product["customizable"]["band_width_id"] ?? null;
+                                    $order_product->accent_stone_type_id = $product["customizable"]["accent_stone_type_id"] ?? null;
+                                    $order_product->setting_height_id = $product["customizable"]["setting_height_id"] ?? null;
+                                    $order_product->prong_style_id = $product["customizable"]["prong_style_id"] ?? null;
+                                    $order_product->ring_size_id = $product["customizable"]["ring_size_id"] ?? null;
+                                    $order_product->bespoke_customization_types_id = $product["customizable"]["bespoke_customization_types_id"] ?? null;
+                                    $order_product->birth_stone_id = $product["customizable"]["birth_stone_id"] ?? null;
+
+                                    $order_product->gem_stone_id = $product["customizable"]["gem_stone_id"] ?? null;
+
+                                    $order_product->gem_stone_color_id = $product["customizable"]["gem_stone_color_id"] ?? null;
+
+                                    $order_product->engraved_text = $product["customizable"]["engraved_text"] ?? null;
+                                }
+
+
+
+                                $order_product->save();
+                                $total += ($product['product_selected_qty'] * $product['product_price']) - ($product_price->discount_price * $product['product_selected_qty']);
+                            } else {
+                                throw new Error("Product with ID {$product['id']} not found");
+                            }
+                        }
+                    } else throw new Error("Order Request Failed!");
+                }
+                if ($total < 0) throw new Error("Order Request Failed because your total amount is 0!");
+                $payment = new Payment();
+                $payment->payment_method = $request->payment_method;
+                $payment->total = $total;
+                $payment->txt_refno = $request->txt_refno;
+                $payment->response_code = $request->response_code;
+                $payment->response_message = $request->response_message;
+                $payment->save();
+                $payment->orders()->sync($order_ids);
+                if ($request->response_code == 000 || $request->response_code == 0000) {
+                    $user = User::whereRelation('role', 'name', 'admin')->first();
+                    $title = 'NEW ORDER';
+                    $message = 'You have recieved new order';
+                    $appnot = new AppNotification();
+                    $appnot->user_id = $user->id;
+                    $appnot->notification = $message;
+                    $appnot->navigation = $title;
+                    $appnot->save();
+                    NotiSend::sendNotif($user->device_token, '', $title, $message);
+                    DB::commit();
+                    return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
+                } else {
+                    DB::commit();
+                    return response()->json(['status' => false, 'Message' => 'Order Failed!']);
+                }
+            } catch (\Throwable $th) {
+                DB::rollBack();
+                // throw $th;
+                return response()->json(['status' => false, 'Message' => $th->getMessage(), 'request' => $request->all()]);
+            }
+        } else return response()->json(['status' => false, 'Message' => 'Order Request Failed!', 'request' => $request->all()]);
+    }
+
+
     public function show(Request $request)
     {
         $valid = Validator::make($request->all(), [
@@ -38,12 +176,19 @@ class OrderController extends Controller
         $role = $request->role;
         $search = $request->search;
         $status = $request->status;
-        $order = Order::orderBy('id', 'DESC')->with(['user_orders.products.images', 'user_payments.payments', 'users.role', 'seller.role'])->where('pay_status', 'paid');
-        $order_count = Order::with(['user_orders.products.images', 'user_payments.payments', 'users.role', 'seller.role'])->where('pay_status', 'paid');
+        $order = Order::orderBy('id', 'DESC')->with(['user_orders.products.images', 'user_payments.payments', 'users.role'])->where('pay_status', 'paid');
+        $order_count = Order::with(['user_orders.products.images', 'user_payments.payments', 'users.role'])->where('pay_status', 'paid');
+
+
+
+        // print_r($order);
+        //check order status
         if (!empty($status)) {
             $order->where('status', $status);
             $order_count->where('status', $status);
         }
+
+        // check user role
         if (!empty($role)) {
             $order->whereHas('users', function ($q) use ($role) {
                 $q->whereRelation('role', 'name', $role);
@@ -52,6 +197,8 @@ class OrderController extends Controller
                 $q->whereRelation('role', 'name', $role);
             });
         }
+
+        //search function to check the order 
         if (!empty($search)) {
             $order->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', '%' . $search . '%')
@@ -70,8 +217,96 @@ class OrderController extends Controller
                     ->orWhere('order_date', 'like', '%' . $search . '%');
             });
         }
+
+        //search and replace customizables
         $orders = $order->skip($skip)->take($take)->get();
         $orders_counts = $order_count->count();
+
+        $orders->transform(function ($order) {
+            $order->user_orders->transform(function ($orderProduct) {
+
+
+                //do product image migrations
+                if ($orderProduct->metal_type_id) {
+                    $query = "
+                        SELECT pi.name, pi.image 
+                        FROM product_images pi
+                        JOIN order_products op ON pi.product_id = op.product_id
+                        WHERE op.product_id = ? 
+                          AND pi.id = ?
+                    ";
+
+                    $materials = DB::select($query, [
+                        $orderProduct->product_id,
+                        $orderProduct->metal_type_id
+                    ]);
+
+
+                    if (!empty($materials)) {
+                        $material = $materials[0];
+                        $metal_type = [
+                            "name" => $material->name,
+                            "image" => $this->formatImageUrl($material->image),
+                        ];
+                    }
+                }
+                if ($orderProduct->bespoke_customization_types_id) {
+                    $query = "
+                    SELECT bt.*, bc.name 
+                    FROM bespoke_customization_types bt
+                    JOIN bespoke_customizations bc ON bt.bespoke_customization_id = bc.id
+                    WHERE bt.id = ?
+                ";
+
+                    $bespokeResults = DB::select($query, [$orderProduct->bespoke_customization_types_id]);
+
+                    $bespoke = !empty($bespokeResults) ? $bespokeResults[0] : null;
+                }
+
+                //do product image migrations
+                $orderProduct->customizables = [
+                    'metal_type' => $metal_type ?? null,
+                    'gem_shape' => $orderProduct->gem_shape_id ? GemShape::find($orderProduct->gem_shape_id) : null,
+                    'band_width' => $orderProduct->band_width_id ? BandWidth::find($orderProduct->band_width_id) : null,
+                    'accent_stone_type' => $orderProduct->accent_stone_type_id ? AccentStoneTypes::find($orderProduct->accent_stone_type_id) : null,
+                    'setting_height' => $orderProduct->setting_height_id ? SettingHeight::find($orderProduct->setting_height_id) : null,
+                    'prong_style' => $orderProduct->prong_style_id ? ProngStyle::find($orderProduct->prong_style_id) : null,
+                    'ring_size' => $orderProduct->ring_size_id ? RingSize::find($orderProduct->ring_size_id) : null,
+                    'bespoke_customization_type' => $bespoke ?? null,
+                    'birth_stone' => $orderProduct->birth_stone_id ? BirthStone::find($orderProduct->birth_stone_id) : null,
+                    'gem_stone' => $orderProduct->gem_stone_id ? GemStone::find($orderProduct->gem_stone_id) : null,
+                    'gem_stone_color' => $orderProduct->gem_stone_color_id ? GemStoneColor::find($orderProduct->gem_stone_color_id) : null,
+                    'engraved_text' => $orderProduct->engraved_text,
+                    'metal_type_karat' => $orderProduct->metal_type_karat,
+                ];
+
+                // Remove the original fields
+                unset(
+                    $orderProduct->metal_type_id,
+                    $orderProduct->gem_shape_id,
+                    $orderProduct->band_width_id,
+                    $orderProduct->accent_stone_type_id,
+                    $orderProduct->setting_height_id,
+                    $orderProduct->prong_style_id,
+                    $orderProduct->ring_size_id,
+                    $orderProduct->bespoke_customization_types_id,
+                    $orderProduct->birth_stone_id,
+                    $orderProduct->gem_stone_id,
+                    $orderProduct->gem_stone_color_id,
+
+                    $orderProduct->engraved_text,
+                    $orderProduct->metal_type_karat
+                );
+
+                return $orderProduct;
+            });
+
+            return $order;
+        });
+
+
+
+
         if (count($orders)) return response()->json(['status' => true, 'Message' => 'Order found', 'Orders' => OrderResource::collection($orders) ?? [], 'OrdersCount' => $orders_counts ?? []], 200);
         else return response()->json(['status' => false, 'Message' => 'Order not found', 'Orders' => $orders ?? [], 'OrdersCount' => $orders_counts ?? []]);
     }
@@ -103,86 +338,6 @@ class OrderController extends Controller
         $orderRefund = RefundOrder::with('orders.user_payments.payments')->orderBy('id', 'DESC')->get();
         if (count($orderRefund)) return response()->json(['status' => true, 'Message' => 'Refund Order found', 'orderRefund' => $orderRefund ?? []], 200);
         else return response()->json(['status' => false, 'Message' => 'Refund Order not found', 'orderRefund' => $orderRefund ?? []]);
-    }
-
-    public function order(Request $request)
-    {
-        if (!empty($request->order)) {
-            try {
-                DB::beginTransaction();
-                $order_ids = [];
-                $total = 0;
-                $latestOrderId = 0;
-                $latestOrder = Order::orderBy('created_at', 'DESC')->first();
-                foreach ($request->order as $key => $orders) {
-                    if (is_object($orders)) $orders = $orders->toArray();
-                    $order = new Order();
-                    $order->user_id = auth()->user()->id;
-                    $order->seller_id = $orders['sellerId'];
-                    if (empty($latestOrder)) $latestOrderId = 0;
-                    else $latestOrderId = $latestOrder->id;
-                    $order->order_number = '#' . str_pad($latestOrderId + 1, 8, "0", STR_PAD_LEFT);
-                    $order->customer_name = $orders['name'];
-                    $order->email = $orders['email'];
-                    $order->phone = $orders['phone'];
-                    $order->delivery_address = $orders['address'];
-                    $order->order_date = Carbon::now();
-                    if (isset($orders['pay_status']) && $orders['pay_status'] == 'unpaid') $order->pay_status = 'unpaid';
-                    // $order->area = $orders['area'];
-                    // $order->city = $orders['city'];
-                    // $order->gross_amount = $orders['gross_amount'];
-                    // $order->net_amount = $orders['net_amount'];
-                    // $order->note = $orders['note'];
-                    $order->save();
-                    $order_ids[] = $order->id;
-                    if (!empty($orders['product'])) {
-                        foreach ($orders['product'] as $key => $product) {
-                            if (is_object($product)) $product = $product->toArray();
-                            $product_price = Product::where('id', $product['id'])->first();
-                            $order_product = new OrderProduct();
-                            $order_product->order_id = $order->id;
-                            $order_product->product_id = $product['id'];
-                            $order_product->qty = $product['product_selected_qty'];
-                            $order_product->size = $product['size'];
-                            $order_product->product_price = $product['product_price'];
-                            $order_product->subtotal = $product['product_selected_qty'] * $product['product_price'];
-                            $order_product->discount = $product_price->discount_price * $product['product_selected_qty'];
-                            $order_product->save();
-                            $total += ($product['product_selected_qty'] * $product['product_price']) - ($product_price->discount_price * $product['product_selected_qty']);
-                        }
-                    } else throw new Error("Order Request Failed!");
-                }
-                if ($total < 0) throw new Error("Order Request Failed because your total amount is 0!");
-                $payment = new Payment();
-                $payment->payment_method = $request->payment_method;
-                $payment->total = $total;
-                $payment->txt_refno = $request->txt_refno;
-                $payment->response_code = $request->response_code;
-                $payment->response_message = $request->response_message;
-                $payment->save();
-                $payment->orders()->sync($order_ids);
-                if($request->response_code == 000 || $request->response_code == 0000){
-                    $user = User::whereRelation('role', 'name', 'admin')->first();
-                    $title = 'NEW ORDER';
-                    $message = 'You have recieved new order';
-                    $appnot = new AppNotification();
-                    $appnot->user_id = $user->id;
-                    $appnot->notification = $message;
-                    $appnot->navigation = $title;
-                    $appnot->save();
-                    NotiSend::sendNotif($user->device_token, '', $title, $message);
-                    DB::commit();
-                    return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
-                }else{
-                    DB::commit();
-                    return response()->json(['status' => false, 'Message' => 'Order Failed!']);
-                }
-            } catch (\Throwable $th) {
-                DB::rollBack();
-                // throw $th;
-                return response()->json(['status' => false, 'Message' => $th->getMessage(), 'request' => $request->all()]);
-            }
-        } else return response()->json(['status' => false, 'Message' => 'Order Request Failed!', 'request' => $request->all()]);
     }
 
     public function orderStatusChange(Request $request)
@@ -230,7 +385,7 @@ class OrderController extends Controller
                 return response()->json(["status" => true, 'Message' => 'Order Status Change to Reject Successfully'], 200);
             } else {
                 $title = 'YOUR ORDER HAS BEEN PENDING';
-                $message = 'Dear ' . $user->username . ' your order has been pending from admin-The Real Bazaar';
+                $message = 'Dear ' . $user->username . ' your order has been pending from admin-The Pro Art';
                 $appnot = new AppNotification();
                 $appnot->user_id = $user->id;
                 $appnot->notification = $message;
