@@ -182,7 +182,7 @@ class ProductSeeder extends Seeder
 
         for ($i = 0; $i < 3; $i++) {
             $product = new Product();
-            $product->user_id = 4;
+            $product->user_id = 3;
             $product->sub_category_id = 1;
             $product->title = 'T-Shirt';
             $product->price = '5000';
