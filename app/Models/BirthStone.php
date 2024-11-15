@@ -8,5 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class BirthStone extends Model
 {
     use HasFactory;
+    protected $guarded = [];
+
     protected $fillable = ["name", "image"];
 }

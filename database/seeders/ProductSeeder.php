@@ -221,11 +221,11 @@ class ProductSeeder extends Seeder
                 ]);
 
                 // Assign product_enum_id to the product
-                $product->product_enum_id = $productEnum->id;
+                // $product->product_enum_id = $productEnum->id;
                 $product->save();
             } else {
                 // Set product_enum_id to 0 for the first product
-                $product->product_enum_id = 0;
+                // $product->product_enum_id = 0;
                 $product->save();
             }
         }

@@ -38,7 +38,7 @@ return new class extends Migration
 
             //ring type
             $table->string('image')->nullable();
-            $table->integer('product_enum_id')->default(0);
+            // $table->integer('product_enum_id')->default(0);
             // $table->integer("shape_id")->nullable();
             // $table->integer("metal_type_id")->nullable(); //is conneced to Product_images_table
             $table->unsignedBigInteger('user_id');

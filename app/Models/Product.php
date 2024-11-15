@@ -45,38 +45,48 @@ class Product extends Model
         return $this->hasMany(ProductReview::class, 'product_id', 'id');
     }
 
-    // protected static function boot()
-    // {
-    //     parent::boot();
-    //     if (auth()->check()) {
-    //         $user = auth()->user()->load('role');
-    //         if ($user->role->name == 'user') {
-    //             static::addGlobalScope('active', function ($builder) {
-    //                 $builder->orderBy('id', 'DESC')->where('status', 'approved')
-    //                     ->where('is_delete', false)
-    //                     ->where('is_active', true)
-    //                     ->whereRelation('user', 'is_block', false)
-    //                     ->whereRelation('user', 'is_active', true);
-    //             });
-    //         } elseif ($user->role->name == 'admin') {
-    //             static::addGlobalScope('active', function ($builder) {
-    //                 $builder->orderBy('id', 'DESC')->whereRelation('user', 'is_block', false);
-    //             });
-    //         } else {
-    //             static::addGlobalScope('active', function ($builder) {
-    //                 $builder->orderBy('id', 'DESC')->whereRelation('user', 'is_block', false)->where('is_delete', false);
-    //             });
-    //         }
-    //     } else {
-    //         static::addGlobalScope('active', function ($builder) {
-    //             $builder->orderBy('id', 'DESC')->where('status', 'approved')
-    //                 ->where('is_delete', false)
-    //                 ->where('is_active', true)
-    //                 ->whereRelation('user', 'is_block', false)
-    //                 ->whereRelation('user', 'is_active', true);
-    //         });
-    //     }
-    // }
+    protected static function boot()
+    {
+        parent::boot();
+        static::addGlobalScope('active', function ($builder) {
+            $builder->orderBy('id', 'DESC')
+                ->where('status', 'approved')
+                ->where('is_delete', false)
+                ->where('is_active', true);
+        });
+        // if (auth()->check()) {
+        //     $user = auth()->user()->load('role');
+        //     if ($user->role->name == 'user') {
+        //         static::addGlobalScope('active', function ($builder) {
+        //             $builder->orderBy('id', 'DESC')->where('status', 'approved')
+        //                 ->where('is_delete', false)
+        //                 ->where('is_active', true)
+        //                 ->whereRelation('user', 'is_block', false)
+        //                 ->whereRelation('user', 'is_active', true);
+        //         });
+        //     } elseif ($user->role->name == 'admin') {
+        //         static::addGlobalScope('active', function ($builder) {
+        //             $builder->orderBy('id', 'DESC')->whereRelation('user', 'is_block', false);
+        //         });
+        //     } else {
+        //         static::addGlobalScope('active', function ($builder) {
+        //             $builder->orderBy('id', 'DESC')->whereRelation('user', 'is_block', false)->where('is_delete', false);
+        //         });
+        //     }
+        // } else {
+        //     static::addGlobalScope('active', function ($builder) {
+        //         $builder->orderBy('id', 'DESC')->where('status', 'approved')
+        //             ->where('is_delete', false)
+        //             ->where('is_active', true)
+        //             ->whereRelation('user', 'is_block', false)
+        //             ->whereRelation('user', 'is_active', true);
+        //     });
+        // }
+    }
+    public function productEnum()
+    {
+        return $this->hasOne(ProductEnum::class, 'product_id', 'id');
+    }
     protected function getThreeStarAttribute()
     {
         $three_star = 0;

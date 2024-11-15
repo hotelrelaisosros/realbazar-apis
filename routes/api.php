@@ -54,9 +54,17 @@ Route::post('delete/product', [Api\ProductController::class, 'delete']);
 Route::get('hard/delete/product/{id}', [Api\ProductController::class, 'hardDelete']);
 Route::get('all/hard/delete/product', [Api\ProductController::class, 'allHardDelete']);
 Route::post('show/delete/product', [Api\ProductController::class, 'showDeleteProduct']);
-Route::get('image/{id}', [Api\ProductController::class, 'image']);
+
+//product image crud
+Route::get('image/product_id/{id}', [Api\ProductController::class, 'image']);
+Route::get('image/product_image/{id}', [Api\ProductController::class, 'product_image_search']);
+
 Route::post('delete/image', [Api\ProductController::class, 'deleteImage']);
 Route::post('add/image', [Api\ProductController::class, 'addImage']);
+Route::post('update/image', [Api\ProductController::class, 'updateImage']);
+
+
+// product status
 Route::get('history/products', [Api\ProductController::class, 'historyProduct']);
 Route::post('add/history/products', [Api\ProductController::class, 'addHistoryProduct']);
 Route::post('like/products', [Api\ProductController::class, 'likeProduct']);
@@ -153,6 +161,10 @@ Route::prefix('api/v1')->group(function () {
         Route::get('/rings/{productId}', [Api\ProductController::class, 'get_one_ring_product']);
         Route::get('/search_by_category', [Api\ProductController::class, 'get_by_category']);
         Route::get('/testfunc', [Api\ProductController::class, 'testfunc']);
+
+        Route::get('/add_images', [Api\ProductController::class, 'add_images_all_products']);
+        Route::get('/add_images_rings', [Api\ProductController::class, 'add_images_rings']);
+
 
         Route::prefix('search')->group(function () {
             Route::get('/step_one', [Api\ProductController::class, 'search_products_step_one']);

@@ -28,22 +28,37 @@ use App\Http\Controllers\Api\NotiSend;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 
+use App\Models\AccentStoneTypes;
+use App\Models\BandWidth;
+use App\Models\BespokeCustomization;
+use App\Models\BespokeCustomizationType;
+use App\Models\BirthStone;
+use App\Models\ProductEnum;
+use App\Models\ProngStyle;
+use App\Models\RingSize;
+use App\Models\SettingHeight;
+
 class ProductController extends Controller
 {
     public function get_all_ring_product()
     {
-        $products = Product::where("sub_category_id", "=", "1")->get();
+        $products = Product::with(['images', 'variation', 'subCategories.categories'])
+            ->where('is_delete', false)
+            ->where('sub_category_id', '=', 1)
+            ->get();
 
         return response()->json([
             'status' => true,
-            'message' => count($products) > 0 ? 'Products Found' : 'No Ring Category found',
+            'message' => count(value: $products) > 0 ? 'Products Found' : 'No Ring Category found',
             'products' => $products,
         ], 200);
     }
 
     public function get_all_products()
     {
-        $products = Product::all();
+        $products = Product::with(['images', 'variation', 'subCategories.categories'])
+            ->where('is_delete', false)
+            ->get();
         return response()->json([
             'status' => true,
             'message' => count($products) > 0 ? 'Products found' : 'No products found',
@@ -53,7 +68,11 @@ class ProductController extends Controller
 
     public function get_one_ring_product($productId)
     {
-        $product = Product::where("id", $productId)->where("sub_category_id", "=", "1")->first();
+        $product = Product::with(['images', 'variation', 'subCategories.categories'])
+            ->where('is_delete', false)
+            ->where('sub_category_id', '=', 1)
+            ->where('id', $productId)
+            ->first();
 
         if ($product) {
             return response()->json([
@@ -71,7 +90,10 @@ class ProductController extends Controller
 
     public function get_one_product($productId)
     {
-        $product = Product::find($productId);
+        $product = Product::with(['images', 'variation', 'subCategories.categories'])
+            ->where('is_delete', false)
+            ->where('id', $productId)
+            ->first();
 
         if ($product) {
             return response()->json([
@@ -377,22 +399,22 @@ class ProductController extends Controller
         $skip = $request->skip;
         $take = $request->take;
         $status = $request->status;
-        $role = $request->role;
+        // $role = $request->role;
         $search = $request->search;
-        $all_product = Product::has('user')->with(['user.role', 'images', 'variation', 'subCategories.categories', 'reviews.users'])->where('is_delete', false);
-        $all_product_count = Product::has('user')->with(['user.role', 'images', 'variation', 'subCategories.categories', 'reviews.users'])->where('is_delete', false);
+        $all_product = Product::with(['images', 'variation', 'subCategories.categories'])->where('is_delete', false);
+        $all_product_count = Product::with(['images', 'variation', 'subCategories.categories'])->where('is_delete', false);
         if (!empty($status)) {
             $all_product->where('status', $status);
             $all_product_count->where('status', $status);
         }
-        if (!empty($role)) {
-            $all_product->whereHas('user', function ($q) use ($role) {
-                $q->whereRelation('role', 'name', $role);
-            });
-            $all_product_count->whereHas('user', function ($q) use ($role) {
-                $q->whereRelation('role', 'name', $role);
-            });
-        }
+        // if (!empty($role)) {
+        //     $all_product->whereHas('user', function ($q) use ($role) {
+        //         $q->whereRelation('role', 'name', $role);
+        //     });
+        //     $all_product_count->whereHas('user', function ($q) use ($role) {
+        //         $q->whereRelation('role', 'name', $role);
+        //     });
+        // }
         if (!empty($search)) {
             $all_product->where(function ($q) use ($search) {
                 $q->where('title', 'like', '%' . $search . '%')
@@ -573,7 +595,7 @@ class ProductController extends Controller
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
         $id = explode(',', $request->id);
-        $all_product = Product::whereIn('id', $id)->has('user')->with(['user', 'images', 'variation', 'subCategories.categories', 'reviews.users'])->get();
+        $all_product = Product::whereIn('id', $id)->with(['user', 'images', 'variation', 'subCategories.categories'])->get();
         if (count($all_product)) return response()->json(['status' => true, 'Message' => 'Product found', 'Products' => ProductsResource::collection($all_product)], 200);
         return response()->json(['status' => false, 'Message' => 'Product not found']);
     }
@@ -618,7 +640,8 @@ class ProductController extends Controller
             'price' => 'nullable',
             'discount' => 'nullable',
             'product_desc' => 'required',
-            'product_image' => 'required|array',
+            'product_single_image' => 'required',
+            'product_multiple_images' => 'required|array',
             'variations' => 'required',
             'tags' => 'required',
             'sub_category_id' => 'required',
@@ -634,19 +657,13 @@ class ProductController extends Controller
         }
         try {
             DB::beginTransaction();
-            $user = auth()->user();
-            if ($user->role->name == 'wholesaler' || $user->role->name == 'retailer') {
-                $payment = PackagePayment::where('user_id', $user->id)->where('end_date', '<', Carbon::now())->first();
-                // $payment exist means expired payment;
-                if ($payment) throw new Error("Please buy package!");
-                if ($user->is_active == false) throw new Error("You Account status has been deactivated!");
-                $productCount = Product::where('user_id', $user->id)->count();
-                $packageProductCount = PackagePayment::where('user_id', $user->id)->first();
-                if (!$packageProductCount) throw new Error("Please buy package!");
-                $qty = $packageProductCount->updated_product_qty;
-                if ($productCount >= $qty) throw new Error("Your Product limit is full now you buy new package!");
+            // $user = auth()->user();
+
+            if (true) {
+
+
                 $new_product = new Product();
-                $new_product->user_id = $user->id;
+                $new_product->user_id = '1';
                 $new_product->sub_category_id = $request->sub_category_id;
                 $new_product->title = $request->title;
                 $new_product->price = $request->price ?? 0;
@@ -655,17 +672,42 @@ class ProductController extends Controller
                 $new_product->tags = json_encode($request->tags);
                 $new_product->desc = $request->product_desc;
                 $new_product->is_featured = $request->featured ?? false;
+
+                // if (!$new_product->sub_category_id == 1) {
                 if (!$new_product->save()) throw new Error("Product not added!");
-                if (!empty($request->product_image)) {
-                    foreach ($request->product_image as $image) {
-                        $product_image = new ProductImage();
-                        $product_image->product_id = $new_product->id;
-                        $filename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
-                        $image->storeAs('product', $filename, "public");
-                        $product_image->image = "product/" . $filename;
-                        if (!$product_image->save()) throw new Error("Product Images not added!");
+                // }
+
+
+                if ($request->hasFile('product_single_image')) {
+                    $product_image = new ProductImage();
+                    $product_image->product_id = $new_product->id;
+
+                    // Single image save
+                    $filename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
+                    $request->product_single_image->storeAs('product/' . $new_product->id, $filename, "public");
+                    $product_image->image = "product/" . $new_product->id . "/" . $filename;
+
+                    // Multiple images save (if provided)
+                    $multiple_images = [];
+                    if ($request->has('product_multiple_images') && is_array($request->product_multiple_images)) {
+                        foreach ($request->product_multiple_images as $image) {
+                            $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
+                            $image->storeAs('product/' . $new_product->id . '/additional', $imageFilename, "public");
+                            $multiple_images[] = "product/" . $new_product->id . '/additional' . "/" . $imageFilename;
+                        }
+                        $product_image->image_collection = str_replace('\/', '/', json_encode($multiple_images));
                     }
+
+                    //update it as enum
+                    if ($request->sub_category_id == 1) {
+                        $product_image->name = "Platinum";
+                        $product_image->small_image = "small_image.jpg";
+                    }
+
+                    if (!$product_image->save()) throw new Error("Product image not saved!");
                 }
+
+
                 if (!empty($request->variations)) {
                     foreach ($request->variations as $variation) {
                         if (is_object($variation)) $variation = $variation->toArray();
@@ -677,16 +719,42 @@ class ProductController extends Controller
                         if (!$newVariation->save()) throw new Error("Product Variations not added!");
                     }
                 }
-                $products = Product::has('user')->with(['user', 'images', 'variation', 'subCategories.categories', 'reviews.users'])->where('id', $new_product->id)->first();
-                $user = User::whereRelation('role', 'name', 'admin')->first();
-                $title = 'NEW PRODUCT';
-                $message = 'You have recieved new product';
-                $appnot = new AppNotification();
-                $appnot->user_id = $user->id;
-                $appnot->notification = $message;
-                $appnot->navigation = $title;
-                $appnot->save();
-                NotiSend::sendNotif($user->device_token, '', $title, $message);
+
+                //ensure configurations for ring products
+                if ($request->sub_category_id == 1 && $new_product->id && $product_image->id) {
+                    $product_enum = new ProductEnum();
+                    $product_enum->metal_types = json_encode([$product_image->id]);
+                    $product_enum->gem_shape_id = 1;
+                    $product_enum->default_metal_id = $product_image->id;
+                    $product_enum->band_width_ids = json_encode(BandWidth::pluck('id')->toArray());
+                    $product_enum->accent_stone_type_ids = json_encode(AccentStoneTypes::pluck('id')->toArray());
+                    $product_enum->setting_height_ids = json_encode(SettingHeight::pluck('id')->toArray());
+                    $product_enum->prong_style_ids = json_encode(ProngStyle::pluck('id')->toArray());
+                    $product_enum->ring_size_ids = json_encode(RingSize::pluck('id')->toArray());
+                    $product_enum->bespoke_customization_ids = json_encode(BespokeCustomization::pluck('id')->toArray());
+                    $product_enum->birth_stone_ids = json_encode(BirthStone::pluck('id')->toArray());
+                    $product_enum->product_id = $new_product->id;
+
+
+                    // if ($product_enum->save()) {
+                    if (!$product_enum->save()) throw new Error("Customizations not addded");
+
+                    // if (!$new_product->save()) throw new Error("Product not added even with customizations!");
+                    // } else {
+                    //     throw new Error("Customizations are not enabled for this product!");
+                    // }
+                }
+                $products = Product::has('user')->with(['productEnum', 'user', 'images', 'variation', 'subCategories.categories'])
+                    ->where('id', $new_product->id)->first();
+                // $user = User::whereRelation('role', 'name', 'admin')->first();
+                // $title = 'NEW PRODUCT';
+                // $message = 'New Product has been added';
+                // $appnot = new AppNotification();
+                // $appnot->user_id = $user->id;
+                // $appnot->notification = $message;
+                // $appnot->navigation = $title;
+                // $appnot->save();
+                // NotiSend::sendNotif($user->device_token, '', $title, $message);
                 DB::commit();
                 return response()->json(['status' => true, 'Message' => 'Product Added Successfully!', 'Products' => new ProductsResource($products) ?? []], 200);
             } else throw new Error("Authenticated User Required!");
@@ -694,6 +762,15 @@ class ProductController extends Controller
             DB::rollBack();
             return response()->json(['status' => false, 'Message' => $th->getMessage()]);
         }
+    }
+
+    public function update_product_enum(Request $request) {}
+
+    protected function check_product_exists($productId)
+    {
+        $product = Product::find($productId);
+        if (!$product)
+            return response()->json(['status' => false, 'Message' => 'product not found!'], 404);
     }
 
     public function update(Request $request)
@@ -704,81 +781,125 @@ class ProductController extends Controller
             'price' => 'nullable',
             'discount' => 'nullable',
             'product_desc' => 'required',
-            // 'product_image' => 'required|array',
+            'product_single_image' => 'nullable',
+            'product_multiple_images' => 'nullable|array',
             'variations' => 'required',
             'tags' => 'required',
             'sub_category_id' => 'required',
-            // 'brand' => 'required',
-            // 'product_status' => 'required',
-            // 'product_selected_qty' => 'nullable',
-            // 'category' => 'required',
-            // 'featured' => 'required',
+
         ]);
 
         if ($valid->fails()) {
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
+
         try {
             DB::beginTransaction();
-            $user = auth()->user();
-            if ($user->role->name == 'wholesaler' || $user->role->name == 'retailer') {
-                // $payment = PackagePayment::where('user_id', $user->id)->where('end_date', '<', Carbon::now())->first();
-                // // $payment exist means expired payment;
-                // if ($payment || $user->is_active == false) throw new Error("Please buy package!");
-                // $productCount = Product::where('user_id', $user->id)->count();
-                // $packageProductCount = PackagePayment::where('user_id', $user->id)->first();
-                // $qty = $packageProductCount->updated_product_qty;
-                // if ($productCount >= $qty) throw new Error("Your Product limit is full now you buy new package!");
-                $product = Product::where('id', $request->id)->first();
-                $product->user_id = $user->id;
-                $product->sub_category_id = $request->sub_category_id;
-                $product->title = $request->title;
-                $product->price = $request->price;
-                $product->discount_price = $request->discount;
-                $product->tags = json_encode($request->tags);
-                $product->desc = $request->product_desc;
-                $product->is_featured = $request->featured ?? false;
-                if (!$product->save()) throw new Error("Product not Updated!");
-                if (!empty($request->product_image)) {
-                    foreach ($request->product_image as $image) {
-                        $product_image = new ProductImage();
-                        $product_image->product_id = $product->id;
-                        $filename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
-                        $image->storeAs('product', $filename, "public");
-                        $product_image->image = "product/" . $filename;
-                        if (!$product_image->save()) throw new Error("Product Images not added!");
-                    }
-                }
-                if (!empty($request->variations)) {
-                    $existVariation = ProductVariation::where('product_id', $product->id)->get();
-                    if (!empty($existVariation)) {
-                        foreach ($existVariation as $key => $value) {
-                            $value->delete();
+
+            $product = Product::find($request->id);
+            if (!$product)
+                return response()->json(['status' => false, 'Message' => 'product not found!'], 404);
+
+
+            $product->sub_category_id = $request->sub_category_id;
+            $product->title = $request->title;
+            $product->price = $request->price ?? 0;
+            $product->discount_price = $request->discount ?? 0;
+            $product->tags = json_encode($request->tags);
+            $product->desc = $request->product_desc;
+            $product->is_featured = $request->featured ?? false;
+
+            if (!$product->save()) throw new Error("Product not updated!");
+
+            //product image should be updated by product image crud
+
+            // Single image update for sub_category_id =1 only non rings are updatable
+
+            if ($product->sub_category_id != 1) {
+                if ($request->hasFile('product_single_image')) {
+                    $product_image = ProductImage::where('product_id', $product->id)->first() ?? new ProductImage();
+                    $product_image->product_id = $product->id;
+
+                    $filename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
+                    $request->product_single_image->storeAs('product/' . $product->id, $filename, "public");
+                    $product_image->image = "product/" . $product->id . "/" . $filename;
+
+                    // Multiple images update
+                    $multiple_images = [];
+                    if ($request->has('product_multiple_images') && is_array($request->product_multiple_images)) {
+                        foreach ($request->product_multiple_images as $image) {
+                            $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
+                            $image->storeAs('product/' . $product->id . '/additional', $imageFilename, "public");
+                            $multiple_images[] = "product/" . $product->id . '/additional' . "/" . $imageFilename;
                         }
+                        $product_image->image_collection = str_replace('\/', '/', json_encode($multiple_images));
                     }
-                    foreach ($request->variations as $variation) {
-                        if (is_object($variation)) $variation = $variation->toArray();
-                        $newVariation = new ProductVariation();
-                        $newVariation->product_id = $product->id;
-                        $newVariation->size = $variation['size'];
-                        $newVariation->stock = $variation['stock'];
-                        $newVariation->price = $variation['price'];
-                        if (!$newVariation->save()) throw new Error("Product Variations not added!");
-                    }
+
+                    if (!$product_image->save()) throw new Error("Product image not saved!");
                 }
-                $products = Product::has('user')->with(['user', 'images', 'variation', 'subCategories.categories', 'reviews.users'])->where('id', $product->id)->first();
-                DB::commit();
-                return response()->json(['status' => true, 'Message' => 'Product Updated Successfully!', 'Products' => new ProductsResource($products) ?? []], 200);
-            } else throw new Error("Authenticated User Required!");
+            }
+
+            if ($product->sub_category_id == 1) {
+                $product_enum = new ProductEnum();
+                // $product_enum->metal_types = json_encode([$product_image->id]);
+                $product_enum->gem_shape_id = 1;
+                // $product_enum->default_metal_id = $product_image->id;
+                $product_enum->band_width_ids = json_encode(BandWidth::pluck('id')->toArray());
+                $product_enum->accent_stone_type_ids = json_encode(AccentStoneTypes::pluck('id')->toArray());
+                $product_enum->setting_height_ids = json_encode(SettingHeight::pluck('id')->toArray());
+                $product_enum->prong_style_ids = json_encode(ProngStyle::pluck('id')->toArray());
+                $product_enum->ring_size_ids = json_encode(RingSize::pluck('id')->toArray());
+                $product_enum->bespoke_customization_ids = json_encode(BespokeCustomization::pluck('id')->toArray());
+                $product_enum->birth_stone_ids = json_encode(BirthStone::pluck('id')->toArray());
+                $product_enum->product_id = $product->id;
+
+
+                // if ($product_enum->save()) {
+                if (!$product_enum->save()) throw new Error("Customizations not addded");
+
+                // } else {
+                //     throw new Error("Customizations are not enabled for this product!");
+                // }
+            }
+
+
+            // Update variations
+            if (!empty($request->variations)) {
+                ProductVariation::where('product_id', $product->id)->delete();
+
+                foreach ($request->variations as $variation) {
+                    if (is_object($variation)) $variation = $variation->toArray();
+                    $newVariation = new ProductVariation();
+                    $newVariation->product_id = $product->id;
+                    $newVariation->size = $variation['size'];
+                    $newVariation->stock = $variation['stock'];
+                    $newVariation->price = $variation['price'];
+                    if (!$newVariation->save()) throw new Error("Product Variations not added!");
+                }
+            }
+
+            $products = Product::has('user')->with(['images', 'variation', 'subCategories.categories'])
+                ->where('id', $product->id)->first();
+
+            DB::commit();
+            return response()->json(['status' => true, 'Message' => 'Product Updated Successfully!', 'Products' => $products ?? []], 200);
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json(['status' => false, 'Message' => $th->getMessage()]);
         }
     }
 
-    public function image($id)
+
+
+    public function image($productId)
     {
-        $all_image = ProductImage::where('product_id', $id)->get();
+        $all_image = ProductImage::where('product_id', $productId)->get();
+        if (count($all_image)) return response()->json(['status' => true, 'Message' => 'Product Image found', 'Images' => $all_image], 200);
+        else return response()->json(['status' => false, 'Message' => 'Product Image not found']);
+    }
+    public function product_image_search($productImageId)
+    {
+        $all_image = ProductImage::where('id', $productImageId)->get();
         if (count($all_image)) return response()->json(['status' => true, 'Message' => 'Product Image found', 'Images' => $all_image], 200);
         else return response()->json(['status' => false, 'Message' => 'Product Image not found']);
     }
@@ -798,25 +919,116 @@ class ProductController extends Controller
     public function addImage(Request $request)
     {
         $valid = Validator::make($request->all(), [
-            'product_id' => 'required|numeric',
-            'product_image' => 'required|array',
+            'product_id' => 'required|numeric|exists:products,id',
+            'product_single_image' => 'nullable|image',
+            'product_multiple_images' => 'nullable|array',
+            'product_small_image' => 'nullable',
+            'name' => "nullable|string"
         ]);
 
         if ($valid->fails()) {
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
-        if (!empty($request->product_image)) {
-            foreach ($request->product_image as $image) {
-                $product_image = new ProductImage();
-                $product_image->product_id = $request->product_id;
-                $filename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
-                $image->storeAs('product', $filename, "public");
-                $product_image->image = "product/" . $filename;
-                $product_image->save();
+
+        try {
+            $this->check_product_exists($valid['product_id']);
+
+            $get_product = DB::select("SELECT sc.id 
+            FROM product_images pi 
+            JOIN products p ON p.id = pi.product_id 
+            JOIN sub_category sc ON p.sub_category_id = sc.id 
+            WHERE p.id = :product_id", ['product_id' => $valid['product_id']]);
+
+            $isRing = $get_product[0]->id == 1 ? true : false;
+
+            $product_image = new ProductImage();
+            $product_image->product_id = $request->product_id;
+
+            if ($request->hasFile('product_single_image')) {
+                $filename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
+                $request->product_single_image->storeAs('product/' . $request->product_id, $filename, "public");
+                $product_image->image = "product/" . $request->product_id . "/" . $filename;
+
+                if ($isRing) {
+                    $product_image->name = $valid["name"];
+                    $smallImageFilename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
+                    $request->product_single_image->storeAs('product/' . $request->product_id . "/small-icon", $smallImageFilename, "public");
+                    $product_image->small_image = "product/" . $request->product_id . "/small-icon/" . $smallImageFilename;
+                }
             }
-            return response()->json(['status' => true, 'Message' => 'Product Image Added Successfully!'], 200);
-        } else return response()->json(['status' => false, 'Message' => 'Product Image not Added!']);
+
+            $multiple_images = [];
+            if ($request->has('product_multiple_images') && is_array($request->product_multiple_images)) {
+                foreach ($request->product_multiple_images as $image) {
+                    $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
+                    $image->storeAs('product/' . $request->product_id . '/additional', $imageFilename, "public");
+                    $multiple_images[] = "product/" . $request->product_id . '/additional' . "/" . $imageFilename;
+                }
+                $product_image->image_collection = json_encode($multiple_images);
+            }
+
+            if (!$product_image->save()) {
+                throw new \Exception("Product image not saved!");
+            }
+
+            return response()->json(['status' => true, 'Message' => 'Product Image(s) Added Successfully!'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'Message' => $e->getMessage()], 404);
+        }
     }
+
+    public function updateImage(Request $request)
+    {
+        $valid = Validator::make($request->all(), [
+            'product_id' => 'required|numeric|exists:products,id',
+            'product_single_image' => 'nullable|image',
+            'product_multiple_images' => 'nullable|array',
+            'product_small_image' => 'nullable',
+            'name' => "nullable|string"
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+        }
+
+        try {
+            $this->check_product_exists($valid['product_id']);
+
+            $product_image = ProductImage::where('product_id', $request->product_id)->first();
+
+            if ($request->hasFile('product_single_image')) {
+                $filename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
+                $request->product_single_image->storeAs('product/' . $request->product_id, $filename, "public");
+                $product_image->image = "product/" . $request->product_id . "/" . $filename;
+
+                if ($request->has('product_small_image')) {
+                    $smallImageFilename = "Product-" . time() . "-" . rand() . "." . $request->product_small_image->getClientOriginalExtension();
+                    $request->product_small_image->storeAs('product/' . $request->product_id . "/small-icon", $smallImageFilename, "public");
+                    $product_image->small_image = "product/" . $request->product_id . "/small-icon/" . $smallImageFilename;
+                }
+            }
+
+            $multiple_images = [];
+            if ($request->has('product_multiple_images') && is_array($request->product_multiple_images)) {
+                foreach ($request->product_multiple_images as $image) {
+                    $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
+                    $image->storeAs('product/' . $request->product_id . '/additional', $imageFilename, "public");
+                    $multiple_images[] = "product/" . $request->product_id . '/additional' . "/" . $imageFilename;
+                }
+                $product_image->image_collection = json_encode($multiple_images);
+            }
+
+            if (!$product_image->save()) {
+                throw new \Exception("Product image not saved!");
+            }
+
+            return response()->json(['status' => true, 'Message' => 'Product Image(s) Updated Successfully!'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'Message' => $e->getMessage()], 404);
+        }
+    }
+
+
 
     public function deleteImage(Request $request)
     {
@@ -1176,3 +1388,85 @@ class ProductController extends Controller
         return response()->json(["status" => true, 'lineChart' => $lineChart], 200);
     }
 }
+
+
+
+// public function update(Request $request)
+// {
+//     $valid = Validator::make($request->all(), [
+//         'id' => 'required',
+//         'title' => 'required',
+//         'price' => 'nullable',
+//         'discount' => 'nullable',
+//         'product_desc' => 'required',
+//         // 'product_image' => 'required|array',
+//         'variations' => 'required',
+//         'tags' => 'required',
+//         'sub_category_id' => 'required',
+//         // 'brand' => 'required',
+//         // 'product_status' => 'required',
+//         // 'product_selected_qty' => 'nullable',
+//         // 'category' => 'required',
+//         // 'featured' => 'required',
+//     ]);
+
+//     if ($valid->fails()) {
+//         return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+//     }
+//     try {
+//         DB::beginTransaction();
+//         $user = auth()->user();
+//         if ($user->role->name == 'wholesaler' || $user->role->name == 'retailer') {
+//             // $payment = PackagePayment::where('user_id', $user->id)->where('end_date', '<', Carbon::now())->first();
+//             // // $payment exist means expired payment;
+//             // if ($payment || $user->is_active == false) throw new Error("Please buy package!");
+//             // $productCount = Product::where('user_id', $user->id)->count();
+//             // $packageProductCount = PackagePayment::where('user_id', $user->id)->first();
+//             // $qty = $packageProductCount->updated_product_qty;
+//             // if ($productCount >= $qty) throw new Error("Your Product limit is full now you buy new package!");
+//             $product = Product::where('id', $request->id)->first();
+//             $product->user_id = $user->id;
+//             $product->sub_category_id = $request->sub_category_id;
+//             $product->title = $request->title;
+//             $product->price = $request->price;
+//             $product->discount_price = $request->discount;
+//             $product->tags = json_encode($request->tags);
+//             $product->desc = $request->product_desc;
+//             $product->is_featured = $request->featured ?? false;
+//             if (!$product->save()) throw new Error("Product not Updated!");
+//             if (!empty($request->product_image)) {
+//                 foreach ($request->product_image as $image) {
+//                     $product_image = new ProductImage();
+//                     $product_image->product_id = $product->id;
+//                     $filename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
+//                     $image->storeAs('product', $filename, "public");
+//                     $product_image->image = "product/" . $filename;
+//                     if (!$product_image->save()) throw new Error("Product Images not added!");
+//                 }
+//             }
+//             if (!empty($request->variations)) {
+//                 $existVariation = ProductVariation::where('product_id', $product->id)->get();
+//                 if (!empty($existVariation)) {
+//                     foreach ($existVariation as $key => $value) {
+//                         $value->delete();
+//                     }
+//                 }
+//                 foreach ($request->variations as $variation) {
+//                     if (is_object($variation)) $variation = $variation->toArray();
+//                     $newVariation = new ProductVariation();
+//                     $newVariation->product_id = $product->id;
+//                     $newVariation->size = $variation['size'];
+//                     $newVariation->stock = $variation['stock'];
+//                     $newVariation->price = $variation['price'];
+//                     if (!$newVariation->save()) throw new Error("Product Variations not added!");
+//                 }
+//             }
+//             $products = Product::has('user')->with(['user', 'images', 'variation', 'subCategories.categories', 'reviews.users'])->where('id', $product->id)->first();
+//             DB::commit();
+//             return response()->json(['status' => true, 'Message' => 'Product Updated Successfully!', 'Products' => new ProductsResource($products) ?? []], 200);
+//         } else throw new Error("Authenticated User Required!");
+//     } catch (\Throwable $th) {
+//         DB::rollBack();
+//         return response()->json(['status' => false, 'Message' => $th->getMessage()]);
+//     }
+// }
