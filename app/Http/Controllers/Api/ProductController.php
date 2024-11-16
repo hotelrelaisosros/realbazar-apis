@@ -929,6 +929,7 @@ class ProductController extends Controller
         if ($valid->fails()) {
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
+        $valid = $valid->validated();
 
         try {
             $this->check_product_exists($valid['product_id']);
@@ -936,7 +937,7 @@ class ProductController extends Controller
             $get_product = DB::select("SELECT sc.id 
             FROM product_images pi 
             JOIN products p ON p.id = pi.product_id 
-            JOIN sub_category sc ON p.sub_category_id = sc.id 
+            JOIN sub_categories sc ON p.sub_category_id = sc.id 
             WHERE p.id = :product_id", ['product_id' => $valid['product_id']]);
 
             $isRing = $get_product[0]->id == 1 ? true : false;
@@ -962,16 +963,18 @@ class ProductController extends Controller
                 foreach ($request->product_multiple_images as $image) {
                     $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
                     $image->storeAs('product/' . $request->product_id . '/additional', $imageFilename, "public");
-                    $multiple_images[] = "product/" . $request->product_id . '/additional' . "/" . $imageFilename;
+
+                    $multiple_images[] = "product/" . $request->product_id . '/additional/' . $imageFilename;
                 }
-                $product_image->image_collection = json_encode($multiple_images);
+                $product_image->image_collection = json_encode($multiple_images, JSON_UNESCAPED_SLASHES);
             }
 
             if (!$product_image->save()) {
                 throw new \Exception("Product image not saved!");
             }
+            $image = ProductImage::with('product')->where("id", $product_image->id)->first();
 
-            return response()->json(['status' => true, 'Message' => 'Product Image(s) Added Successfully!'], 200);
+            return response()->json(['status' => true, 'Message' => 'Product Image(s) Added Successfully!', "image" => $image], 200);
         } catch (\Exception $e) {
             return response()->json(['status' => false, 'Message' => $e->getMessage()], 404);
         }
@@ -980,30 +983,42 @@ class ProductController extends Controller
     public function updateImage(Request $request)
     {
         $valid = Validator::make($request->all(), [
+            'product_image_id' => 'required|numeric|exists:product_images,id',
             'product_id' => 'required|numeric|exists:products,id',
             'product_single_image' => 'nullable|image',
             'product_multiple_images' => 'nullable|array',
-            'product_small_image' => 'nullable',
+            'product_small_image' => 'nullable|image',
             'name' => "nullable|string"
         ]);
 
         if ($valid->fails()) {
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
+        $valid = $valid->validated();
 
         try {
             $this->check_product_exists($valid['product_id']);
 
-            $product_image = ProductImage::where('product_id', $request->product_id)->first();
+            $get_product = DB::select("SELECT sc.id 
+                FROM product_images pi 
+                JOIN products p ON p.id = pi.product_id 
+                JOIN sub_categories sc ON p.sub_category_id = sc.id 
+                WHERE p.id = :product_id", ['product_id' => $valid['product_id']]);
+
+            $isRing = $get_product[0]->id == 1 ? true : false;
+
+            $product_image = ProductImage::findOrFail($valid['product_image_id']);
+            $product_image->product_id = $request->product_id;
 
             if ($request->hasFile('product_single_image')) {
                 $filename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
                 $request->product_single_image->storeAs('product/' . $request->product_id, $filename, "public");
                 $product_image->image = "product/" . $request->product_id . "/" . $filename;
 
-                if ($request->has('product_small_image')) {
-                    $smallImageFilename = "Product-" . time() . "-" . rand() . "." . $request->product_small_image->getClientOriginalExtension();
-                    $request->product_small_image->storeAs('product/' . $request->product_id . "/small-icon", $smallImageFilename, "public");
+                if ($isRing) {
+                    $product_image->name = $valid["name"];
+                    $smallImageFilename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
+                    $request->product_single_image->storeAs('product/' . $request->product_id . "/small-icon", $smallImageFilename, "public");
                     $product_image->small_image = "product/" . $request->product_id . "/small-icon/" . $smallImageFilename;
                 }
             }
@@ -1013,20 +1028,24 @@ class ProductController extends Controller
                 foreach ($request->product_multiple_images as $image) {
                     $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
                     $image->storeAs('product/' . $request->product_id . '/additional', $imageFilename, "public");
-                    $multiple_images[] = "product/" . $request->product_id . '/additional' . "/" . $imageFilename;
+
+                    $multiple_images[] = "product/" . $request->product_id . '/additional/' . $imageFilename;
                 }
-                $product_image->image_collection = json_encode($multiple_images);
+                $product_image->image_collection = json_encode($multiple_images, JSON_UNESCAPED_SLASHES);
             }
 
             if (!$product_image->save()) {
-                throw new \Exception("Product image not saved!");
+                throw new \Exception("Product image not updated!");
             }
 
-            return response()->json(['status' => true, 'Message' => 'Product Image(s) Updated Successfully!'], 200);
+            $image = ProductImage::with('product')->where("id", $product_image->id)->first();
+
+            return response()->json(['status' => true, 'Message' => 'Product Image(s) Updated Successfully!', "image" => $image], 200);
         } catch (\Exception $e) {
             return response()->json(['status' => false, 'Message' => $e->getMessage()], 404);
         }
     }
+
 
 
 
