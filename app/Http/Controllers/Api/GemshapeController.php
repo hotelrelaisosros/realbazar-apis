@@ -80,7 +80,13 @@ class GemshapeController extends Controller
     // Display the specified resource.
     public function show($id)
     {
-        $gemshape = Gemshape::findOrFail($id);
+        $gemshape = Gemshape::find($id);
+
+        if (!$gemshape) {
+            return response()->json([
+                'message' => 'Gemshape not found!',
+            ], 404);
+        }
         $gemshape->image = $this->formatImageUrl($gemshape->image);
 
         return response()->json($gemshape);

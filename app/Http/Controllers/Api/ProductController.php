@@ -725,7 +725,7 @@ class ProductController extends Controller
                     $product_enum = new ProductEnum();
                     $product_enum->metal_types = json_encode([$product_image->id]);
                     $product_enum->gem_shape_id = 1;
-                    $product_enum->default_metal_id = $product_image->id;
+                    // $product_enum->default_metal_id = $product_image->id;
                     $product_enum->band_width_ids = json_encode(BandWidth::pluck('id')->toArray());
                     $product_enum->accent_stone_type_ids = json_encode(AccentStoneTypes::pluck('id')->toArray());
                     $product_enum->setting_height_ids = json_encode(SettingHeight::pluck('id')->toArray());
@@ -934,13 +934,7 @@ class ProductController extends Controller
         try {
             $this->check_product_exists($valid['product_id']);
 
-            $get_product = DB::select("SELECT sc.id 
-            FROM product_images pi 
-            JOIN products p ON p.id = pi.product_id 
-            JOIN sub_categories sc ON p.sub_category_id = sc.id 
-            WHERE p.id = :product_id", ['product_id' => $valid['product_id']]);
-
-            $isRing = $get_product[0]->id == 1 ? true : false;
+            $isRing =  Product::isRing($valid['product_id'])->exists();
 
             $product_image = new ProductImage();
             $product_image->product_id = $request->product_id;
@@ -972,6 +966,21 @@ class ProductController extends Controller
             if (!$product_image->save()) {
                 throw new \Exception("Product image not saved!");
             }
+
+            if ($isRing) {
+                $getProductEnum = ProductEnum::where("product_id", $request->product_id)->first(); // Fetch the record
+
+                if ($getProductEnum) {
+                    $existingMetalTypes = json_decode($getProductEnum->metal_types, true) ?? [];
+                    $newValue =  $product_image->id;
+                    if (!in_array($newValue, $existingMetalTypes)) {
+                        $existingMetalTypes[] = $newValue;
+                    }
+
+                    $getProductEnum->metal_types = json_encode($existingMetalTypes);
+                    $getProductEnum->save();
+                }
+            }
             $image = ProductImage::with('product')->where("id", $product_image->id)->first();
 
             return response()->json(['status' => true, 'Message' => 'Product Image(s) Added Successfully!', "image" => $image], 200);
@@ -999,13 +1008,8 @@ class ProductController extends Controller
         try {
             $this->check_product_exists($valid['product_id']);
 
-            $get_product = DB::select("SELECT sc.id 
-                FROM product_images pi 
-                JOIN products p ON p.id = pi.product_id 
-                JOIN sub_categories sc ON p.sub_category_id = sc.id 
-                WHERE p.id = :product_id", ['product_id' => $valid['product_id']]);
+            $isRing =  Product::isRing($valid['product_id'])->exists();
 
-            $isRing = $get_product[0]->id == 1 ? true : false;
 
             $product_image = ProductImage::findOrFail($valid['product_image_id']);
             $product_image->product_id = $request->product_id;
@@ -1048,14 +1052,62 @@ class ProductController extends Controller
 
 
 
-
     public function deleteImage(Request $request)
     {
+        $valid = Validator::make($request->all(), [
+            'id' => 'required|integer|exists:product_images,id',
+        ]);
+        if ($valid->fails()) {
+            return response()->json(['status' => false, 'message' => 'Validation errors', 'errors' => $valid->errors()]);
+        }
+        $valid = $valid->validated();
         $product = ProductImage::where('id', $request->id)->first();
-        if (!empty($product)) {
-            if ($product->delete()) return response()->json(['status' => true, 'Message' => 'Successfully Image deleted'], 200);
-        } else return response()->json(["status" => false, 'Message' => 'Unsuccessfull Image deleted']);
+
+        if (!$product) {
+            return response()->json(['status' => false, 'message' => 'Product image not found'], 404);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $isRing = Product::isRing($product->product_id)->exists();
+
+            if ($isRing) {
+                $productEnum = ProductEnum::where('product_id', $product->product_id)->first();
+
+                if ($productEnum) {
+                    $metalTypes = json_decode($productEnum->metal_types, true);
+                    if (!is_array($metalTypes)) {
+                        $metalTypes = [];
+                    }
+
+                    $updatedMetalTypes = array_filter($metalTypes, function ($typeId) use ($product) {
+                        return $typeId != $product->id;
+                    });
+
+                    if (empty($updatedMetalTypes)) {
+                        $productEnum->delete();
+                    } else {
+                        $productEnum->metal_types = json_encode(array_values($updatedMetalTypes));
+                        $productEnum->save();
+                    }
+                }
+            }
+
+            // Delete the product image
+            $product->delete();
+
+            DB::commit();
+
+            return response()->json(['status' => true, 'message' => 'Image and associated records deleted successfully'], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json(['status' => false, 'message' => 'An error occurred while deleting the image', 'error' => $e->getMessage()]);
+        }
     }
+
+
 
     public function showDeleteProduct(Request $request)
     {
@@ -1405,6 +1457,50 @@ class ProductController extends Controller
             ->orderBy('createdAt')
             ->get();
         return response()->json(["status" => true, 'lineChart' => $lineChart], 200);
+    }
+
+
+    public function updateProductEnums(Request $request)
+    {
+        $validatedData = $request->validate([
+            'product_id' => 'required|integer',
+            'metal_types' => 'nullable|array',
+            'gem_shape_id' => 'nullable|integer',
+            'band_width_ids' => 'nullable|array',
+            'accent_stone_type_ids' => 'nullable|array',
+            'setting_height_ids' => 'nullable|array',
+            'prong_style_ids' => 'nullable|array',
+            'ring_size_ids' => 'nullable|array',
+            'bespoke_customization_ids' => 'nullable|array',
+            'birth_stone_ids' => 'nullable|array',
+        ]);
+
+        $product_check = ProductEnum::find($validatedData["product_id"]);
+        if (!$product_check) {
+            return response()->json(['message' => 'Product  not found'], 404);
+        }
+
+        // Fetch the product enum record
+        $productEnum = ProductEnum::where('product_id', $validatedData['product_id'])->first();
+
+        if (!$productEnum) {
+            return response()->json(['message' => 'Sorry this product cannot be customized'], 404);
+        }
+
+        // Update the product enum record with dynamic fields
+        $productEnum->update([
+            'gem_shape_id' => $validatedData['gem_shape_id'] ?? $productEnum->gem_shape_id,
+            'metal_types' =>  isset($validatedData['metal_types']) ? json_encode($validatedData['metal_types']) : $productEnum->metal_types,
+            'band_width_ids' => isset($validatedData['band_width_ids']) ? json_encode($validatedData['band_width_ids']) : $productEnum->band_width_ids,
+            'accent_stone_type_ids' => isset($validatedData['accent_stone_type_ids']) ? json_encode($validatedData['accent_stone_type_ids']) : $productEnum->accent_stone_type_ids,
+            'setting_height_ids' => isset($validatedData['setting_height_ids']) ? json_encode($validatedData['setting_height_ids']) : $productEnum->setting_height_ids,
+            'prong_style_ids' => isset($validatedData['prong_style_ids']) ? json_encode($validatedData['prong_style_ids']) : $productEnum->prong_style_ids,
+            'ring_size_ids' => isset($validatedData['ring_size_ids']) ? json_encode($validatedData['ring_size_ids']) : $productEnum->ring_size_ids,
+            'bespoke_customization_ids' => isset($validatedData['bespoke_customization_ids']) ? json_encode($validatedData['bespoke_customization_ids']) : $productEnum->bespoke_customization_ids,
+            'birth_stone_ids' => isset($validatedData['birth_stone_ids']) ? json_encode($validatedData['birth_stone_ids']) : $productEnum->birth_stone_ids,
+        ]);
+
+        return response()->json(['message' => 'Product enum updated successfully', 'data' => $productEnum], 200);
     }
 }
 

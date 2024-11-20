@@ -207,9 +207,8 @@ class ProductSeeder extends Seeder
             // Create ProductEnum for each product except one
             if ($i !== 0) {
                 $productEnum = ProductEnum::create([
-                    'metal_types' => json_encode(['1', '2']),
+                    'metal_types' => json_encode([1, 2]),
                     'gem_shape_id' => 1,
-                    'default_metal_id' => 2,
                     'band_width_ids' => json_encode(BandWidth::pluck('id')->toArray()),
                     'accent_stone_type_ids' => json_encode(AccentStoneTypes::pluck('id')->toArray()),
                     'setting_height_ids' => json_encode(SettingHeight::pluck('id')->toArray()),

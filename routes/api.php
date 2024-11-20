@@ -64,6 +64,15 @@ Route::post('add/image', [Api\ProductController::class, 'addImage']);
 Route::post('update/image', [Api\ProductController::class, 'updateImage']);
 
 
+//product image crud
+Route::get('enum/product_id/{id}', [Api\ProductEnumController::class, 'image']);
+// Route::get('image/product_image/{id}', [Api\ProductEnumController::class, 'product_image_search']);
+
+// Route::post('delete/image', [Api\ProductEnumController::class, 'deleteImage']);
+// Route::post('add/image', [Api\ProductEnumController::class, 'addImage']);
+// Route::post('update/image', [Api\ProductEnumController::class, 'updateImage']);
+
+
 // product status
 Route::get('history/products', [Api\ProductController::class, 'historyProduct']);
 Route::post('add/history/products', [Api\ProductController::class, 'addHistoryProduct']);
@@ -165,6 +174,8 @@ Route::prefix('api/v1')->group(function () {
         Route::get('/add_images', [Api\ProductController::class, 'add_images_all_products']);
         Route::get('/add_images_rings', [Api\ProductController::class, 'add_images_rings']);
 
+        Route::post('/update_customization', [Api\ProductController::class, 'updateProductEnums']);
+
 
         Route::prefix('search')->group(function () {
             Route::get('/step_one', [Api\ProductController::class, 'search_products_step_one']);
@@ -172,45 +183,69 @@ Route::prefix('api/v1')->group(function () {
         });
 
 
-        //crud needed 
-
-        //gemstone type
-        // hidden birthstones
-        // product images / metal type
-        //gemshape
 
 
         Route::prefix('gemshapes')->group(function () {
             Route::get('/', [Api\GemshapeController::class, 'index']);
             Route::get('/{id}', [Api\GemshapeController::class, 'show']);
             Route::post('/', [Api\GemshapeController::class, 'store']);
-            Route::put('/{id}', [Api\GemshapeController::class, 'update']);
+            Route::post('/{id}', [Api\GemshapeController::class, 'update']);
             Route::delete('/{id}', [Api\GemshapeController::class, 'destroy']);
         });
         Route::prefix('birthstones')->group(function () {
             Route::get('/', [Api\BirthStoneController::class, 'index']);
-            Route::get('{birthstones}', [Api\BirthStoneController::class, 'show']);
+            Route::get('{id}', [Api\BirthStoneController::class, 'show']);
             Route::post('/', [Api\BirthStoneController::class, 'store']);
-            Route::put('{birthstones}', [Api\BirthStoneController::class, 'update']);
-            Route::delete('{birthstones}', [Api\BirthStoneController::class, 'destroy']);
+            Route::post('{id}', [Api\BirthStoneController::class, 'update']);
+            Route::delete('{id}', [Api\BirthStoneController::class, 'destroy']);
         });
 
         Route::prefix('gem_stones_colors')->group(function () {
             Route::get('/', [Api\GemStoneColorController::class, 'index']);
-            Route::get('{gem_stones_colors}', [Api\GemStoneColorController::class, 'show']);
+            Route::get('{id}', [Api\GemStoneColorController::class, 'show']);
             Route::post('/', [Api\GemStoneColorController::class, 'store']);
-            Route::put('{gem_stones_colors}', [Api\GemStoneColorController::class, 'update']);
-            Route::delete('{gem_stones_colors}', [Api\GemStoneColorController::class, 'destroy']);
+            Route::post('{id}', [Api\GemStoneColorController::class, 'update']);
+            Route::delete('{id}', [Api\GemStoneColorController::class, 'destroy']);
         });
 
 
         Route::prefix('gem_stones')->group(function () {
             Route::get('/', [Api\GemStoneController::class, 'index']);
-            Route::get('{gem_stones}', [Api\GemStoneController::class, 'show']);
+            Route::get('{id}', [Api\GemStoneController::class, 'show']);
             Route::post('/', [Api\GemStoneController::class, 'store']);
-            Route::put('{gem_stones}', [Api\GemStoneController::class, 'update']);
-            Route::delete('{gem_stones}', [Api\GemStoneController::class, 'destroy']);
+            Route::put('{id}', [Api\GemStoneController::class, 'update']);
+            Route::delete('{id}', [Api\GemStoneController::class, 'destroy']);
         });
+        Route::prefix('bespoke_customization')->group(function () {
+            Route::get('/', [Api\BespokeCustomizationController::class, 'index']);
+            Route::get('{id}', [Api\BespokeCustomizationController::class, 'show']);
+            Route::post('/', [Api\BespokeCustomizationController::class, 'store']);
+            Route::post('{id}', [Api\BespokeCustomizationController::class, 'update']);
+            Route::delete('{id}', [Api\BespokeCustomizationController::class, 'destroy']);
+        });
+
+        Route::prefix('bespoke_customization_types')->group(function () {
+            Route::get('/', [Api\BespokeCustomizationTypeController::class, 'index']);
+            Route::get('{id}', [Api\BespokeCustomizationTypeController::class, 'show']);
+            Route::post('/', [Api\BespokeCustomizationTypeController::class, 'store']);
+            Route::put('{id}',  [Api\BespokeCustomizationTypeController::class, 'update']);
+            Route::delete('{id}', [Api\BespokeCustomizationTypeController::class, 'destroy']);
+        });
+    });
+
+    Route::prefix("customization")->group(function () {
+        Route::get('/gem_shapes', [RingEnumController::class, 'getGemShapes']);
+        Route::get('/band_widths', [RingEnumController::class, 'getBandWidth']);
+        Route::get('/accent_stone_type', [RingEnumController::class, 'getAccentStoneType']);
+        Route::get('/setting_height', [RingEnumController::class, 'getSettingHeights']);
+        Route::get('/prong_style', [RingEnumController::class, 'getProngStyles']);
+        Route::get('/ring_size', [RingEnumController::class, 'getRingSize']);
+        Route::get('/bespoke_customization', [RingEnumController::class, 'getBespokeCustomization']);
+        Route::get('/bespoke_customization_type', [RingEnumController::class, 'getBespokeCustomizationType']);
+        Route::get('/bespoke_with_types', [RingEnumController::class, 'bespoke_with_types']);
+
+        Route::get('/birth_stone', [RingEnumController::class, 'getBirthStone']);
+        Route::get('/gem_stone_faceting', [RingEnumController::class, 'getGemStoneFaceting']);
     });
 });
 // Route::get('/', function () {
@@ -273,11 +308,4 @@ Route::post('payment/status', [Api\OrderController::class, "jazzcashPaymentStatu
 
 //ring_customizaiton_page1:
 
-Route::get('/enums/metal-karats', [RingEnumController::class, 'getMetalKarats']);
-Route::get('/enums/band-widths', [RingEnumController::class, 'getBandWidths']);
-Route::get('/enums/setting-heights', [RingEnumController::class, 'getSettingHeights']);
-Route::get('/enums/ring-sizes', [RingEnumController::class, 'getRingSizes']);
-Route::get('/enums/prong-styles', [RingEnumController::class, 'getProngStyles']);
-Route::get('/enums/gem_stone_faceting', [RingEnumController::class, 'getGetStoneFacting']);
-
-Route::get('/enums', [RingEnumController::class, 'getAllEnums']);
+// step1 crud

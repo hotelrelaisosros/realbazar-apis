@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
 class Product extends Model
 {
@@ -45,6 +46,11 @@ class Product extends Model
         return $this->hasMany(ProductReview::class, 'product_id', 'id');
     }
 
+    // check if product is a ring
+    public function scopeIsRing(Builder $query, $id)
+    {
+        return $query->where('sub_category_id', 1)->where('id', $id);
+    }
     protected static function boot()
     {
         parent::boot();

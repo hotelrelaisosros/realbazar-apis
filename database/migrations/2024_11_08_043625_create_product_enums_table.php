@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->json('metal_types')->nullable();
             $table->integer('gem_shape_id');
-            $table->integer('default_metal_id');
+            $table->integer('default_metal_id')->nullable();
 
             $table->string('band_width_ids');
             $table->string("accent_stone_type_ids");
