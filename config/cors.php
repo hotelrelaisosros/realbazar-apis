@@ -21,7 +21,7 @@ return [
 
     'allowed_origins' => ["*"], // Leave empty if using patterns
 
-    'allowed_origins_patterns' => ["^http.*"],
+    'allowed_origins_patterns' => ["*"],
     'allowed_headers' => ['*'],
 
     'exposed_headers' => [],
