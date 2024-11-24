@@ -863,7 +863,6 @@ class ProductController extends Controller
             }
 
 
-            // Update variations
             if (!empty($request->variations)) {
                 ProductVariation::where('product_id', $product->id)->delete();
 

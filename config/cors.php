@@ -19,9 +19,9 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [], // Leave empty if using patterns
+    'allowed_origins' => ["*"], // Leave empty if using patterns
 
-    'allowed_origins_patterns' => ['/^http:\/\/.+$/'],
+    'allowed_origins_patterns' => ["^http.*"],
     'allowed_headers' => ['*'],
 
     'exposed_headers' => [],

@@ -25,6 +25,32 @@ Route::post('/check/referral', [Api\AuthController::class, 'checkReferral']);
 Route::post('/login', [Api\AuthController::class, 'login']);
 Route::post('/reset', [Api\AuthController::class, 'reset']);
 Route::post('/forgot', [Api\AuthController::class, 'forgot']);
+
+Route::post('/confirmOtp', [Api\AuthController::class, 'confirmOTP']);
+
+
+
+//subscriber routes
+Route::post('/subscribe-email', action: [Api\SubscriberController::class, 'index']);
+Route::get('/subscriber/verify/{token}/{email}', [Api\SubscriberController::class, 'verify'])->name('subscriber.verify');
+
+
+//auth link email verification
+// verify email
+
+Route::get('/email/verify/{id}/{hash}', [Api\AuthController::class, 'verifyLinkEmail'])->name('verifications.verify');
+
+// limited for 6 requests per ip appserviceprovider.php
+
+Route::post('/resend-verification-link', [Api\AuthController::class, 'resendVerificationLink'])->name('verifications.resend');
+
+//send verification again
+// Route::post('/email/verification-notification', function (Request $request) {
+//     $request->user()->sendEmailVerificationNotification();
+
+//     return back()->with('message', 'Verification link sent!');
+// })->middleware(['auth', 'throttle:6,1'])->name('verification.send');
+
 // Route::middleware('auth:api')->group(callback: function () {
 //auth
 Route::get('show/shop/{id}', [Api\AuthController::class, 'show']);
@@ -271,6 +297,7 @@ Route::get('topRating/product/{role?}/{skip?}/{take?}', [Api\ProductController::
 Route::get('trending/product/{role?}/{skip?}/{take?}', [Api\ProductController::class, 'trendingProduct']);
 Route::get('wholesaler/products', [Api\ProductController::class, 'wholesalerProducts']);
 Route::get('app/wholesaler/products', [Api\ProductController::class, 'appWholesalerProducts']);
+
 
 
 

@@ -12,15 +12,24 @@ use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
 use Error;
+use Event;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
+
 use App\Http\Controllers\Api\NotiSend;
 use App\Models\ReferralUser;
 use App\Models\UnpaidRegisterUser;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use Illuminate\Support\Facades\Date;
+use App\Jobs\RemoveToken;
+
+
 
 class AuthController extends Controller
 {
@@ -241,84 +250,7 @@ class AuthController extends Controller
         );
     }
 
-    public function signupValidPage1(Request $request)
-    {
-        $rules = [
-            'name' => 'required',
-            'email' =>  'required|email|unique:users,email',
-            'phone' => 'required|digits:11|unique:users,phone',
-        ];
 
-        $messages = [
-            'required' => 'This :attribute field is Required',
-        ];
-
-        $attributes = [
-            'name' => 'Username',
-            'email' => 'Email',
-            'phone' => 'Phone',
-        ];
-        $valid = Validator::make($request->all(), $rules, $messages, $attributes);
-        if ($valid->fails()) {
-            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
-        } else {
-            return response()->json(['status' => true, 'Message' => 'Validation success'], 200);
-        }
-    }
-
-    public function signupValidPage2(Request $request)
-    {
-        $rules = [
-            'business_name' => 'required',
-            'business_address' => 'required',
-            'province' => 'required',
-            'country' => 'required',
-            'cnic_number' => 'required|digits:13|unique:users,cnic_number',
-        ];
-
-        $messages = [
-            'required' => 'This :attribute field is Required',
-        ];
-
-        $attributes = [
-            'business_name' => 'Business Name',
-            'business_address' => 'Business Address',
-            'province' => 'Province',
-            'country' => 'Country',
-            'cnic_number' => 'CNIC Number',
-        ];
-        $valid = Validator::make($request->all(), $rules, $messages, $attributes);
-        if ($valid->fails()) {
-            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
-        } else {
-            return response()->json(['status' => true, 'Message' => 'Validation success'], 200);
-        }
-    }
-
-    public function signupValidPage3(Request $request)
-    {
-        $rules = [
-            'password' =>  'required',
-            'cnic_image' =>  'required|array',
-            'bill_image' => 'required|image',
-        ];
-
-        $messages = [
-            'required' => 'This :attribute field is Required',
-        ];
-
-        $attributes = [
-            'password' => 'Password',
-            'cnic_image' => 'CNIC Image',
-            'bill_image' => 'Bill Image',
-        ];
-        $valid = Validator::make($request->all(), $rules, $messages, $attributes);
-        if ($valid->fails()) {
-            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
-        } else {
-            return response()->json(['status' => true, 'Message' => 'Validation success'], 200);
-        }
-    }
 
     public function checkReferral(Request $request)
     {
@@ -333,6 +265,8 @@ class AuthController extends Controller
         $rules = [
             'first_name' => 'required',
             'password' => 'required',
+            'last_name' => 'required',
+
         ];
         $messages = [
             'required' => 'This :attribute Field is Required',
@@ -340,6 +274,8 @@ class AuthController extends Controller
         $attributes = [
             'first_name' => 'First Name',
             'password' => 'Password',
+            'last_name' => 'Last Name',
+
         ];
 
 
@@ -363,16 +299,144 @@ class AuthController extends Controller
             $user->country = $request->country;
             $user->is_user_app = true;
 
+
+            //
+
+            $user->token = rand(100000, 999999);
+            $email = $request->emailphone;
+            $token = $user->token;
+
+            //
+
             if (!$user->save()) throw new Error("User Not Added!");
+            event(new Registered($user));
+
+            $link = URL::temporarySignedRoute(
+                'verifications.verify',
+                now()->addMinutes(30),
+                ['id' => $user->id, 'hash' => sha1($user->email)]
+            );
+            // echo $link;
+
+            Mail::send('admin.mail.appRegister',  compact('email', 'token', 'link'), function ($message) use ($email) {
+                $message->to($email);
+                $message->subject('Welcome to ProsArt');
+            });
 
             $client = User::where('id', $user->id)->first();
+            RemoveToken::dispatch($user)->delay(now()->addMinutes(30));
+
+
             DB::commit();
+
             return response()->json(['status' => true, 'Message' => "User Successfully Added", 'user' => $client,], 200);
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json(['status' => false, 'Message' => $th->getMessage()]);
         }
     }
+
+
+    public function verifyLinkEmail(Request $request, $id, $hash)
+    {
+        try {
+            $user = User::findOrFail($id);
+
+            if (sha1($user->email) !== $hash) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invalid verification link.',
+                ], 400);
+            }
+
+            // Validate the signed URL (ensures the link wasn't tampered with).
+            if (!URL::hasValidSignature($request)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invalid or expired verification link.',
+                ], 400);
+            }
+
+            // Check if the email is already verified.
+            if ($user->hasVerifiedEmail()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Email already verified.',
+                ]);
+            }
+
+            // Mark the email as verified.
+            $user->markEmailAsVerified();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Email successfully verified.',
+            ]);
+        } catch (\Exception $e) {
+            // Handle unexpected errors
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function resendVerificationLink(Request $request)
+    {
+
+        $rules['emailphone'] = 'required|exists:users,email';
+        $attributes['emailphone'] = 'Email';
+        $messages = [
+            'required' => 'This :attribute field is required.',
+            'exists' => 'The :attribute does not exist in our records.',
+        ];
+        $valid = Validator::make($request->all(), $rules, $messages, $attributes);
+        try {
+            $user = User::where('email', $request->emailphone)->first();
+
+            if (!$user) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'User not found with this email address.',
+                ], 404);
+            }
+
+
+            if ($user->hasVerifiedEmail()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Email is already verified.',
+                ]);
+            }
+
+            // Generate a new signed URL
+            $link = URL::temporarySignedRoute(
+                'verifications.verify',
+                now()->addMinutes(30),
+                ['id' => $user->id, 'hash' => sha1($user->email)]
+            );
+
+            // Send the email
+            Mail::send('admin.mail.appRegister', compact('link'), function ($message) use ($user) {
+                $message->to($user->email);
+                $message->subject('Resend Verification Link');
+            });
+
+            RemoveToken::dispatch($user)->delay(now()->addMinutes(30));
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Verification link has been resent to your email.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
 
     public function login(Request $request)
     {
@@ -473,36 +537,89 @@ class AuthController extends Controller
             'required' => 'This :attribute Field is Required',
         ];
         $attributes = [];
-        if (is_numeric($request->get('emailphone'))) {
-            $rules['emailphone'] = 'required|digits:11|exists:users,phone';
-            $attributes['emailphone'] = 'Phone';
-        } else {
-            $rules['emailphone'] = 'required|email|exists:users,email';
-            $attributes['emailphone'] = 'Email';
-        }
+
+        $rules['emailphone'] = 'required|email|exists:users,email';
+        $attributes['emailphone'] = 'Email';
+
         $valid = Validator::make($request->all(), $rules, $messages, $attributes);
 
         if ($valid->fails()) {
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
-        if (is_numeric($request->get('emailphone'))) {
-            $user = User::where('phone', $request->emailphone)->first();
+
+        $user = User::where('email', $request->emailphone)->first();
+        if (!empty($user)) {
+            $user->token = rand(100000, 999999);
+            $user->save();
+            $email = $request->emailphone;
+            $token = $user->token;
+            Mail::send('admin.mail.appForgotPassword',  compact('email', 'token'), function ($message) use ($email) {
+                $message->to($email);
+                $message->subject('Reset Password');
+            });
+            RemoveToken::dispatch($user)->delay(now()->addMinutes(30));
+
+            return response()->json(['status' => true, 'Message' => "Reset Email send to {$email}", 'token' => $token, 'user' => $user,], 200);
         } else {
-            $user = User::where('email', $request->emailphone)->first();
-            if (!empty($user)) {
-                $user->token = rand(1, 10000);
-                $user->save();
-                $email = $request->emailphone;
-                $token = $user->token;
-                Mail::send('admin.mail.appForgotPassword',  compact('email', 'token'), function ($message) use ($email) {
-                    $message->to($email);
-                    $message->subject('Reset Password');
-                });
-                return response()->json(['status' => true, 'Message' => "Reset Email send to {$email}", 'token' => $token, 'user' => $user,], 200);
-            } else {
-                return response()->json(['status' => false, 'Message' => "User not found"]);
-            }
+            return response()->json(['status' => false, 'Message' => "User not found"]);
         }
+    }
+
+    public function confirmOTP(Request $request)
+    {
+        $rules = [
+            'token' => 'required',
+            'emailphone' => 'required|email|exists:users,email',
+        ];
+
+        $messages = [
+            'required' => 'This :attribute field is required',
+            'email' => 'The :attribute must be a valid email address',
+            'exists' => 'The :attribute does not exist in our records',
+        ];
+
+        $attributes = [
+            'token' => 'Token',
+            'emailphone' => 'Email',
+        ];
+
+        $valid = Validator::make($request->all(), $rules, $messages, $attributes);
+
+        if ($valid->fails()) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Validation errors',
+                'errors' => $valid->errors(),
+            ]);
+        }
+
+        $user = User::where('email', $request->emailphone)->first();
+
+        if (empty($user)) {
+            return response()->json(['status' => false, 'Message' => "User does not exist"], 404);
+        }
+
+        if ($user->email_verified_at) {
+            return response()->json(['status' => false, 'Message' => "User already verified"], 200);
+        }
+
+        if (!$user->token) {
+            return response()->json(['status' => false, 'Message' => "OTP does not exist. Please try to verify again"], 404);
+        }
+
+        if ($user->token != $request->token) {
+            return response()->json(['status' => false, 'Message' => "OTP does not match. Please try to verify again"], 404);
+        }
+
+        $user->token = null;
+        $user->email_verified_at = now();
+        $user->save();
+
+        return response()->json([
+            'status' => true,
+            'Message' => "Email Verified Successfully",
+            'user' => $user,
+        ], 200);
     }
 
     public function reset(Request $request)
@@ -520,28 +637,24 @@ class AuthController extends Controller
             'password' => 'Password',
             'c_password' => 'Confirm Password',
         ];
-        if (is_numeric($request->get('emailphone'))) {
-            $rules['emailphone'] = 'required|digits:11|exists:users,phone';
-            $rules['emailphone'] = 'Phone';
-        } else {
-            $rules['emailphone'] = 'required|email|exists:users,email';
-            $rules['emailphone'] = 'Email';
-        }
+
+        $rules['emailphone'] = 'required|email|exists:users,email';
+        $rules['emailphone'] = 'Email';
         $valid = Validator::make($request->all(), $rules, $messages, $attributes);
         if ($valid->fails()) {
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
-        if (is_numeric($request->get('emailphone'))) {
-            $user = User::where('phone', $request->emailphone)->where('token', $request->token)->first();
-        } else {
-            $user = User::where('email', $request->emailphone)->where('token', $request->token)->first();
-            if (empty($user)) return response()->json(['status' => false, 'Message' => "User not found"]);
-            if (Hash::check($request->password, $user->password)) return response()->json(['status' => false, 'Message', 'Please use different from current password.']);
-            $user->password = Hash::make($request->password);
-            $user->token = null;
-            $user->save();
-            return response()->json(['status' => true, 'Message' => "Password Reset Successfully", 'user' => $user,], 200);
-        }
+
+        $user = User::where('email', $request->emailphone)->first();
+        if (empty($user)) return response()->json(['status' => false, 'Message' => "User does not  exist"], 404);
+        if (!$user->token) return response()->json(['status' => false, 'Message' => "OTP does not  exist. Please try to reset your password again"], 404);
+        if ($user->token != $request->token) return response()->json(['status' => false, 'Message' => "OTP does not match"], 404);
+
+        if (Hash::check($request->password, $user->password)) return response()->json(['status' => false, 'Message' => 'Please use different from current password.']);
+        $user->password = Hash::make($request->password);
+        $user->token = null;
+        $user->save();
+        return response()->json(['status' => true, 'Message' => "Password Reset Successfully", 'user' => $user,], 200);
     }
 
     public function edit_profile()
@@ -804,4 +917,96 @@ class AuthController extends Controller
             return response()->json(['status' => false, 'Message' => $th->getMessage()]);
         }
     }
+
+    public function subscribeEmail(Request $request)
+    {
+        $valid = Validator::make($request->all(), [
+            'email' => 'required|email',
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+        }
+        $valid = $valid->validated();
+    }
 }
+
+
+// public function signupValidPage1(Request $request)
+// {
+//     $rules = [
+//         'name' => 'required',
+//         'email' =>  'required|email|unique:users,email',
+//         'phone' => 'required|digits:11|unique:users,phone',
+//     ];
+
+//     $messages = [
+//         'required' => 'This :attribute field is Required',
+//     ];
+
+//     $attributes = [
+//         'name' => 'Username',
+//         'email' => 'Email',
+//         'phone' => 'Phone',
+//     ];
+//     $valid = Validator::make($request->all(), $rules, $messages, $attributes);
+//     if ($valid->fails()) {
+//         return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+//     } else {
+//         return response()->json(['status' => true, 'Message' => 'Validation success'], 200);
+//     }
+// }
+
+// public function signupValidPage2(Request $request)
+// {
+//     $rules = [
+//         'business_name' => 'required',
+//         'business_address' => 'required',
+//         'province' => 'required',
+//         'country' => 'required',
+//         'cnic_number' => 'required|digits:13|unique:users,cnic_number',
+//     ];
+
+//     $messages = [
+//         'required' => 'This :attribute field is Required',
+//     ];
+
+//     $attributes = [
+//         'business_name' => 'Business Name',
+//         'business_address' => 'Business Address',
+//         'province' => 'Province',
+//         'country' => 'Country',
+//         'cnic_number' => 'CNIC Number',
+//     ];
+//     $valid = Validator::make($request->all(), $rules, $messages, $attributes);
+//     if ($valid->fails()) {
+//         return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+//     } else {
+//         return response()->json(['status' => true, 'Message' => 'Validation success'], 200);
+//     }
+// }
+
+// public function signupValidPage3(Request $request)
+// {
+//     $rules = [
+//         'password' =>  'required',
+//         'cnic_image' =>  'required|array',
+//         'bill_image' => 'required|image',
+//     ];
+
+//     $messages = [
+//         'required' => 'This :attribute field is Required',
+//     ];
+
+//     $attributes = [
+//         'password' => 'Password',
+//         'cnic_image' => 'CNIC Image',
+//         'bill_image' => 'Bill Image',
+//     ];
+//     $valid = Validator::make($request->all(), $rules, $messages, $attributes);
+//     if ($valid->fails()) {
+//         return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+//     } else {
+//         return response()->json(['status' => true, 'Message' => 'Validation success'], 200);
+//     }
+// }

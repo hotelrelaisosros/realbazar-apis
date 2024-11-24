@@ -31,7 +31,7 @@ return new class extends Migration
             $table->string('shop_number')->nullable();
             $table->string('market_name')->nullable();
             $table->string('cnic_number')->nullable();
-            $table->enum('account_type', ['facebook', 'google','apple'])->nullable();
+            $table->enum('account_type', ['facebook', 'google', 'apple'])->nullable();
             $table->string('account_id')->nullable();
             $table->string('family_name')->nullable();
             $table->string('given_name')->nullable();
@@ -46,7 +46,9 @@ return new class extends Migration
             $table->string('txt_refno')->nullable();
             $table->string('response_code')->nullable();
             $table->string('response_message')->nullable();
-            $table->enum('payment_method',['easypaisa','jazzcash'])->nullable();
+            // $table->boolean('is_subscribed')->default(false)->nullable();
+
+            $table->enum('payment_method', ['easypaisa', 'jazzcash'])->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
