@@ -28,7 +28,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Date;
 use App\Jobs\RemoveToken;
-
+use Laravel\Passport\Token;
 
 
 class AuthController extends Controller
@@ -521,7 +521,10 @@ class AuthController extends Controller
     {
         $user = User::where('id', auth()->user()->id)->first();
         if (!empty($user)) {
-            $user->device_token = null;
+            $userTokens = $user->tokens;
+            foreach ($userTokens as $token) {
+                $token->revoke();
+            }
             if ($user->save()) {
                 // if (Auth::logout())
                 return response()->json(['status' => true, 'Message' => 'Logout Successfully'], 200);
@@ -928,6 +931,29 @@ class AuthController extends Controller
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
         $valid = $valid->validated();
+    }
+    public function checkToken(Request $request)
+    {
+        $token = $request->input('token'); // Extract the token from the request
+
+        if (!$token) {
+            return response()->json(['status' => false, 'Message' => 'Token not provided'], 400);
+        }
+
+        try {
+            // Use Passport's token repository to check the token
+            $tokenIsValid = \Laravel\Passport\Token::where('id', explode('|', $token)[1] ?? null)
+                ->where('revoked', false)
+                ->exists();
+
+            if ($tokenIsValid) {
+                return response()->json(['status' => true, 'Message' => 'Token is valid'], 200);
+            } else {
+                return response()->json(['status' => false, 'Message' => 'Invalid token'], 401);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'Message' => 'Token validation failed', 'Error' => $e->getMessage()], 500);
+        }
     }
 }
 

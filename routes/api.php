@@ -22,17 +22,34 @@ Route::post('/signup/valid/page2', [Api\AuthController::class, 'signupValidPage2
 Route::post('/signup/valid/page3', [Api\AuthController::class, 'signupValidPage3']);
 Route::post('/signup/defaulter', [Api\AuthController::class, 'signupDefaulter']);
 Route::post('/check/referral', [Api\AuthController::class, 'checkReferral']);
-Route::post('/login', [Api\AuthController::class, 'login']);
+Route::post('/login', [Api\AuthController::class, 'login'])->name('login');
 Route::post('/reset', [Api\AuthController::class, 'reset']);
 Route::post('/forgot', [Api\AuthController::class, 'forgot']);
 
 Route::post('/confirmOtp', [Api\AuthController::class, 'confirmOTP']);
+Route::post('/checkToken', [Api\AuthController::class, 'checkToken']);
+
 
 
 
 //subscriber routes
 Route::post('/subscribe-email', action: [Api\SubscriberController::class, 'index']);
+
 Route::get('/subscriber/verify/{token}/{email}', [Api\SubscriberController::class, 'verify'])->name('subscriber.verify');
+
+Route::get('/return-token-missing', function () {
+    return response()->json([
+        'status' => false,
+        'message' => 'Token is invalid or expired. Please log in again.'
+    ], 401);
+})->name('return-token-missing');
+
+Route::get('/return-verification-missing', function () {
+    return response()->json([
+        'status' => false,
+        'message' => 'Your email is not verified. Please check your email to verify it'
+    ], 401);
+})->name('return-verification-missing');
 
 
 //auth link email verification
@@ -109,7 +126,7 @@ Route::get('status/trending/product/{id}', [Api\ProductController::class, 'produ
 Route::post('product/status/change', [Api\ProductController::class, 'productStatusChange']);
 
 //order
-Route::post('order', [Api\OrderController::class, 'order']);
+Route::post('order', [Api\OrderController::class, 'order'])->middleware('auth:api');
 Route::post('get/order', [Api\OrderController::class, 'show']);
 Route::get('users/order/{status?}', [Api\OrderController::class, 'userOrder']);
 Route::get('sellers/order/{status?}', [Api\OrderController::class, 'sellerOrder']);
@@ -331,6 +348,52 @@ Route::post('jazzcash/mobile/refund', [Api\OrderController::class, "jazzcashMobi
 Route::post('jazzcash/status/inquiry', [Api\OrderController::class, "jazzcashStatusInquiry"]);
 Route::post('easypaisa/checkout', [Api\OrderController::class, "easypaisaCheckout"]);
 Route::post('payment/status', [Api\OrderController::class, "jazzcashPaymentStatus"]);
+
+
+//stripe payment
+Route::get('/checkout', [Api\StripeController::class, "checkout"])->name("checkout");
+Route::post('/stripe/test', [Api\StripeController::class, "test"])->name("test");
+Route::post('/stripe/live', [Api\StripeController::class, "live"])->name("live");
+Route::post('/stripe/getAllTransaction',  [Api\StripeController::class, "getStripeTransactions"]);
+Route::post('/stripe/getSingleCharge',  [Api\StripeController::class, "getSingleCharge"]);
+Route::post('/stripe/getCustomerTransactions',  [Api\StripeController::class, "getCustomerTransactions"]);
+
+//refund
+Route::post('/stripe/refundTransaction',  [Api\StripeController::class, "refundTransaction"]);
+
+
+
+//send email on successful transaction
+Route::post('/stripe/webhook', [Api\StripeController::class, 'handleWebhook']);
+
+
+Route::post('stripe/status/inquiry', [Api\StripeController::class, "jazzcashStatusInquiry"]);
+Route::post('easypaisa/checkout', [Api\StripeController::class, "easypaisaCheckout"]);
+Route::post('payment/status', [Api\StripeController::class, "jazzcashPaymentStatus"]);
+
+
+//
+
+
+
+//order & wishlist 
+
+Route::group(['middleware' => ['auth:api']], function () {
+
+    //only one ring can go to cart
+    Route::post('/add-to-cart', [Api\CartController::class, 'addToCart'])->name('addToCart');
+    Route::post('/update-cart', [Api\CartController::class, 'updateCart'])->name('updateCart');
+    Route::post('/update-cart-customization', [Api\CartController::class, 'updateCartCustomization']);
+
+    Route::post('/remove-cart', [Api\CartController::class, 'removeCart'])->name('removeCart');
+    Route::post('/clear-cart', [Api\CartController::class, 'clearCart'])->name('clearCart');
+    Route::get('/show-cart', [Api\CartController::class, 'showCart'])->name('cart.show');
+
+    Route::get('/wishlist', [Api\CartController::class, 'viewWishlist'])->name('wishlist.view');
+    Route::post('/wishlist/add', [Api\CartController::class, 'addToWishlist'])->name('addToWishlist');
+    Route::post('/wishlist/back', [Api\CartController::class, 'backToCart'])->name('backToCart');
+    Route::post('/wishlist/remove', [Api\CartController::class, 'removeFromWishlist'])->name('removeFromWishlist');
+});
 
 
 //ring_customizaiton_page1:

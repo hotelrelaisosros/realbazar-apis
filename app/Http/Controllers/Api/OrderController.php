@@ -65,9 +65,9 @@ class OrderController extends Controller
                     $order->seller_id = $orders['sellerId'];
                     if (empty($latestOrder)) $latestOrderId = 0;
                     else $latestOrderId = $latestOrder->id;
-                    $order->order_number = '#' . str_pad($latestOrderId + 1, 8, "0", STR_PAD_LEFT);
+                    $order->order_number =  str_pad($latestOrderId + 1, 8, "0", STR_PAD_LEFT);
                     $order->customer_name = $orders['name'];
-                    $order->email = $orders['email'];
+                    $order->email = auth()->user()->email;
                     $order->phone = $orders['phone'];
                     $order->delivery_address = $orders['address'];
                     $order->order_date = Carbon::now();
@@ -228,6 +228,8 @@ class OrderController extends Controller
 
                 //do product image migrations
                 if ($orderProduct->metal_type_id) {
+
+                    //wont be needed 
                     $query = "
                         SELECT pi.name, pi.image 
                         FROM product_images pi

@@ -289,66 +289,6 @@ class ProductController extends Controller
         ], 200);
     }
 
-    // public function webhome($role = null)
-    // {
-    //     $all_product = [];
-    //     $feature_product = [];
-    //     $discount_product = [];
-    //     $newArrivalProduct = [];
-    //     $topRatingProduct = [];
-    //     $justForYouProduct = [];
-    //     $trendingProduct = [];
-    //     $bestSeller = [];
-    //     $banner_header = [];
-    //     $banner_body = [];
-    //     $banner_footer = [];
-    //     if ($role == 'retailer') {
-    //         $all_product = HomePageImage::orderBy('id', 'DESC')->where('is_just_for_you', true)->where('is_retailer', true)->take(5)->get();
-    //         $discount_product = HomePageImage::orderBy('id', 'DESC')->where('is_discount', true)->where('is_retailer', true)->take(5)->get();
-    //         $feature_product = HomePageImage::orderBy('id', 'DESC')->where('is_featured', true)->where('is_retailer', true)->take(5)->get();
-    //         $newArrivalProduct = HomePageImage::orderBy('id', 'DESC')->where('is_new_arrival', true)->where('is_retailer', true)->take(5)->get();
-    //         $topRatingProduct = HomePageImage::orderBy('id', 'DESC')->where('is_top_rating', true)->where('is_retailer', true)->take(5)->get();
-    //         $justForYouProduct = HomePageImage::orderBy('id', 'DESC')->where('is_just_for_you', true)->where('is_retailer', true)->where('is_app', false)->skip(3)->take(6)->get();
-    //         $justForYouSlider = HomePageImage::orderBy('id', 'DESC')->where('is_just_for_you', true)->where('is_retailer', true)->where('is_app', false)->take(3)->get();
-    //         $trendingProduct = HomePageImage::orderBy('id', 'DESC')->where('is_trending', true)->where('is_retailer', true)->take(5)->get();
-    //         $bestSeller = HomePageImage::orderBy('id', 'DESC')->where('is_best_seller', true)->where('is_retailer', true)->take(3)->get();
-    //         $banner_header = Banner::orderBy('id', 'DESC')->where('is_header', true)->take(5)->get();
-    //         $banner_body = Banner::orderBy('id', 'DESC')->where('is_body', true)->take(5)->get();
-    //         $banner_footer = Banner::orderBy('id', 'DESC')->where('is_footer', true)->take(5)->get();
-    //     }
-    //     if ($role == 'wholesaler') {
-    //         $all_product = HomePageImage::orderBy('id', 'DESC')->where('is_just_for_you', true)->where('is_wholesaler', true)->take(5)->get();
-    //         $discount_product = HomePageImage::orderBy('id', 'DESC')->where('is_discount', true)->where('is_wholesaler', true)->take(5)->get();
-    //         $feature_product = HomePageImage::orderBy('id', 'DESC')->where('is_featured', true)->where('is_wholesaler', true)->take(5)->get();
-    //         $newArrivalProduct = HomePageImage::orderBy('id', 'DESC')->where('is_new_arrival', true)->where('is_wholesaler', true)->take(5)->get();
-    //         $topRatingProduct = HomePageImage::orderBy('id', 'DESC')->where('is_top_rating', true)->where('is_wholesaler', true)->take(5)->get();
-    //         $justForYouProduct = HomePageImage::orderBy('id', 'DESC')->where('is_just_for_you', true)->where('is_wholesaler', true)->where('is_app', false)->skip(3)->take(6)->get();
-    //         $justForYouSlider = HomePageImage::orderBy('id', 'DESC')->where('is_just_for_you', true)->where('is_wholesaler', true)->where('is_app', false)->take(3)->get();
-    //         $trendingProduct = HomePageImage::orderBy('id', 'DESC')->where('is_trending', true)->where('is_wholesaler', true)->take(5)->get();
-    //         $bestSeller = HomePageImage::orderBy('id', 'DESC')->where('is_best_seller', true)->where('is_wholesaler', true)->take(3)->get();
-    //         $banner_header = Banner::orderBy('id', 'DESC')->where('is_header', true)->take(5)->get();
-    //         $banner_body = Banner::orderBy('id', 'DESC')->where('is_body', true)->take(5)->get();
-    //         $banner_footer = Banner::orderBy('id', 'DESC')->where('is_footer', true)->take(5)->get();
-    //     }
-
-    //     return response()->json([
-    //         'status' => true,
-    //         'Message' => 'Product found',
-    //         'all_product' => $all_product ?? [],
-    //         'feature_product' => $feature_product ?? [],
-    //         'discount_product' => $discount_product ?? [],
-    //         'newArrivalProduct' => $newArrivalProduct ?? [],
-    //         'topRatingProduct' => $topRatingProduct ?? [],
-    //         'justForYouProduct' => $justForYouProduct ?? [],
-    //         'justForYouSlider' => $justForYouSlider ?? [],
-    //         'trendingProduct' => $trendingProduct ?? [],
-    //         'bestSeller' => $bestSeller ?? [],
-    //         'banner_header' => $banner_header ?? [],
-    //         'banner_body' => $banner_body ?? [],
-    //         'banner_footer' => $banner_footer ?? [],
-    //     ], 200);
-    // }
-
     public function show($role = null, $skip = 0, $take = 0)
     {
         $all_product = [];

@@ -1,9 +1,32 @@
-php artisan route:cache
 php artisan cache:clear
-
-php artisan queue:table
+php artisan route:cache
 php artisan migrate:fresh --seed
 php artisan passport:install
 php artisan storage:link
 
 php artisan queue:work
+
+
+
+php artisan queue:table
+
+
+to do list on the server
+
+setup stripe webhooks
+setup emails and their designs 
+setup jobs on server to remove tokens 
+implement email you have left your cart open
+send product images with the product on frontend 
+
+
+
+//tables taking price
+
+bespoke customization 
+bespoke customization types
+birthtstones
+gem stone
+
+
+//
