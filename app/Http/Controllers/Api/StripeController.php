@@ -71,13 +71,11 @@ class StripeController extends Controller
     }
     public function checkout()
     {
-
         return view('checkout');
     }
     public function test(Request $request)
     {
 
-        $stripe = new \Stripe\StripeClient(config('stripe.test.sk'));
         Stripe::setApiKey(config('stripe.test.sk'));
 
         $order = Order::find($request->order_id);

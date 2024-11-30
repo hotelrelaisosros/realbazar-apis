@@ -389,10 +389,10 @@ Route::group(['middleware' => ['auth:api']], function () {
     Route::post('/clear-cart', [Api\CartController::class, 'clearCart'])->name('clearCart');
     Route::get('/show-cart', [Api\CartController::class, 'showCart'])->name('cart.show');
 
-    Route::get('/wishlist', [Api\CartController::class, 'viewWishlist'])->name('wishlist.view');
-    Route::post('/wishlist/add', [Api\CartController::class, 'addToWishlist'])->name('addToWishlist');
-    Route::post('/wishlist/back', [Api\CartController::class, 'backToCart'])->name('backToCart');
-    Route::post('/wishlist/remove', [Api\CartController::class, 'removeFromWishlist'])->name('removeFromWishlist');
+    Route::get('/wishlist/view', [Api\WishListController::class, 'viewWishlist']);
+    Route::post('/wishlist/add', [Api\WishListController::class, 'addToWishlist'])->name('addToWishlist');
+    Route::post('/wishlist/back', [Api\WishListController::class, 'backToCart'])->name('backToCart');
+    Route::post('/wishlist/remove', [Api\WishListController::class, 'removeFromWishlist'])->name('removeFromWishlist');
 });
 
 
