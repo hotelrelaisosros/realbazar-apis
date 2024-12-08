@@ -51,6 +51,10 @@ class Product extends Model
     {
         return $query->where('sub_category_id', 1)->where('id', $id);
     }
+    public function scopeIsAllRing(Builder $query)
+    {
+        return $query->where('sub_category_id', 1);
+    }
     protected static function boot()
     {
         parent::boot();
@@ -89,7 +93,7 @@ class Product extends Model
         //     });
         // }
     }
-    public function productEnum()
+    public function product_enum()
     {
         return $this->hasOne(ProductEnum::class, 'product_id', 'id');
     }

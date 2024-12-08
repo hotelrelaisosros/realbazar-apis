@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Gemshape;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class GemshapeController extends Controller
 {
@@ -37,10 +38,14 @@ class GemshapeController extends Controller
     // Store a newly created resource in storage.
     public function store(Request $request)
     {
-        $request->validate([
+
+        $valid = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
+        if ($valid->fails()) {
+            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+        }
 
         $step1Directory = 'step1';
         $gemshapesDirectory = 'step1/gemshapes';
@@ -109,12 +114,13 @@ class GemshapeController extends Controller
             ], 404);
         }
 
-        // Validate the request
-        $request->validate([
-            'name' => 'nullable|string|max:255',  // 'nullable' in case name is not provided
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',  // Allow null for image if it's not uploaded
+        $valid = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
-
+        if ($valid->fails()) {
+            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+        }
         // If a new image is uploaded, handle the image update
         if ($request->hasFile('image')) {
             // Check if the current image is a remote URL

@@ -10,7 +10,9 @@ use App\Models\BandWidth;
 use App\Models\BespokeCustomization;
 use App\Models\BespokeCustomizationType;
 use App\Models\BirthStone;
+use App\Models\MetalTypeCategory;
 use App\Models\ProductEnum;
+use App\Models\ProductVariation;
 use App\Models\ProngStyle;
 use App\Models\RingSize;
 use App\Models\SettingHeight;
@@ -92,6 +94,18 @@ class ProductSeeder extends Seeder
             ProngStyle::create($stoneType);
         }
 
+        $metal_type_category = [
+            ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+        ];
+        foreach ($metal_type_category as $stoneType) {
+            MetalTypeCategory::create($stoneType);
+        }
+
         $bespoke_customization_style = [
             ['name' => 'Pavé Bridge', "image" => "upload/images/bspoke/image1.png"],
             ['name' => 'Pavé Band', "image" => "upload/images/bspoke/image1.png"],
@@ -99,16 +113,17 @@ class ProductSeeder extends Seeder
         ];
         $data = [
             [
-                ['name' => 'Moissanite', 'price' => 'ر.س507.00'],
-                ['name' => 'Lab Diamond', 'price' => 'ر.س1,013.00']
+                ['name' => 'Moissanite', 'price' => '500'],
+
+                ['name' => 'Lab Diamond', 'price' => '500'],
             ],
             [
-                ['name' => 'Moissanite', 'price' => 'ر.س633.00'],
-                ['name' => 'Lab Diamond', 'price' => 'ر.س1,140.00']
+                ['name' => 'Moissanite', 'price' =>  '500'],
+                ['name' => 'Lab Diamond', 'price' => '500'],
             ],
             [
-                ['name' => 'Moissanite', 'price' => 'ر.س507.00'],
-                ['name' => 'Lab Diamond', 'price' => 'ر.س1,013.00']
+                ['name' => 'Moissanite', 'price' => '500'],
+                ['name' => 'Lab Diamond', 'price' =>  '500'],
             ]
         ];
         for ($i = 0; $i < count($bespoke_customization_style); $i++) {
@@ -179,6 +194,20 @@ class ProductSeeder extends Seeder
             RingSize::create(['name' => $size]);
         }
 
+
+        //variation seeder
+
+        // $metal_type_category = [
+        //     ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+        //     ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+        //     ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+        //     ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+        //     ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+        //     ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+        // ];
+        // foreach ($metal_type_category as $stoneType) {
+        //     ProductVariation::create($stoneType);
+        // }
 
         for ($i = 0; $i < 3; $i++) {
             $product = new Product();

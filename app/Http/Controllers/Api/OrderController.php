@@ -129,15 +129,16 @@ class OrderController extends Controller
                     } else throw new Error("Order Request Failed!");
                 }
                 if ($total < 0) throw new Error("Order Request Failed because your total amount is 0!");
-                $payment = new Payment();
-                $payment->payment_method = $request->payment_method;
-                $payment->total = $total;
-                $payment->txt_refno = $request->txt_refno;
-                $payment->response_code = $request->response_code;
-                $payment->response_message = $request->response_message;
-                $payment->save();
-                $payment->orders()->sync($order_ids);
-                if ($request->response_code == 000 || $request->response_code == 0000) {
+                if ($request->pay_status == "unpaid") {
+                    $payment = new Payment();
+                    $payment->payment_method = $request->payment_method;
+                    $payment->total = $total;
+                    $payment->txt_refno = $request->txt_refno;
+                    $payment->response_code = $request->response_code;
+                    $payment->response_message = $request->response_message;
+                    $payment->save();
+                    $payment->orders()->sync($order_ids);
+                    // if ($request->response_code == 000 || $request->response_code == 0000) {
                     $user = User::whereRelation('role', 'name', 'admin')->first();
                     $title = 'NEW ORDER';
                     $message = 'You have recieved new order';
@@ -149,9 +150,31 @@ class OrderController extends Controller
                     NotiSend::sendNotif($user->device_token, '', $title, $message);
                     DB::commit();
                     return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
+                    // else {
+                    //     DB::commit();
+                    //     return response()->json(['status' => false, 'Message' => 'Order Failed!']);
+                    // }
                 } else {
+                    $payment = new Payment();
+                    $payment->payment_method = $request->payment_method;
+                    $payment->total = $total;
+                    $payment->txt_refno = "";
+                    $payment->response_code = "";
+                    $payment->response_message = "unpaid";
+                    $payment->save();
+                    $payment->orders()->sync($order_ids);
+                    // if ($request->response_code == 000 || $request->response_code == 0000) {
+                    $user = User::whereRelation('role', 'name', 'admin')->first();
+                    $title = 'NEW ORDER';
+                    $message = 'You have recieved new order';
+                    $appnot = new AppNotification();
+                    $appnot->user_id = $user->id;
+                    $appnot->notification = $message;
+                    $appnot->navigation = $title;
+                    $appnot->save();
+                    NotiSend::sendNotif($user->device_token, '', $title, $message);
                     DB::commit();
-                    return response()->json(['status' => false, 'Message' => 'Order Failed!']);
+                    return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
                 }
             } catch (\Throwable $th) {
                 DB::rollBack();

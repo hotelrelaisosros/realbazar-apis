@@ -19,7 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('seller_id')->nullable();
             $table->string('order_number')->nullable();
             $table->string('customer_name', 40)->nullable();
-            $table->string('email', 40)->nullable();
+            $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->string('area', 40)->nullable();
             $table->string('city', 40)->nullable();

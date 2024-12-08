@@ -15,10 +15,17 @@ return new class extends Migration
     {
         Schema::create('product_variations', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('product_id')->nullable();
+            $table->unsignedBigInteger('product_id');
+            $table->string('title')->nullable();
+
             $table->string('size')->nullable();
             $table->string('stock')->nullable();
             $table->string('price')->nullable();
+
+            $table->integer('metal_type_id')->nullable();
+
+            $table->integer('gem_shape_id')->nullable();
+
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
             $table->timestamps();
         });

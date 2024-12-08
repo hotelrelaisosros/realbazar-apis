@@ -29,6 +29,10 @@ class Order extends Model
         return $this->belongsTo(User::class, 'seller_id', 'id');
     }
 
+    public function payments()
+    {
+        return $this->belongsToMany(Payment::class, 'order_payments', 'order_id', 'payment_id');
+    }
     // protected function getOrderIdAttribute()
     // {
     //     return sprintf("%05d", $this->id);

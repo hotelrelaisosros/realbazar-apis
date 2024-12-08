@@ -21,7 +21,10 @@ return new class extends Migration
             $table->string('image')->nullable();
             $table->json('image_collection')->nullable();
             $table->string('small_image')->nullable();
+            $table->string('type')->nullable();
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
+            $table->unsignedBigInteger('variant_id')->nullable();
+
             $table->timestamps();
         });
     }

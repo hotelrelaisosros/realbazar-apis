@@ -37,15 +37,33 @@ use App\Models\ProductEnum;
 use App\Models\ProngStyle;
 use App\Models\RingSize;
 use App\Models\SettingHeight;
+use App\Helpers\ImageHelper;
 
 class ProductController extends Controller
 {
-    public function get_all_ring_product()
+    protected $file;
+    public function __construct(FileController $file)
     {
-        $products = Product::with(['images', 'variation', 'subCategories.categories'])
+        $this->file = $file;
+    }
+    public function get_all_ring_product_images()
+    {
+
+
+        $products =   Product::with(['images', 'variation', 'subCategories.categories'])
             ->where('is_delete', false)
             ->where('sub_category_id', '=', 1)
             ->get();
+
+
+        $format = new ImageHelper();
+
+
+        foreach ($products as $product) {
+            if (!empty($product["images"])) {
+                $product["images"] = $format->formatProductImages($product["images"]);
+            }
+        }
 
         return response()->json([
             'status' => true,
@@ -56,9 +74,17 @@ class ProductController extends Controller
 
     public function get_all_products()
     {
-        $products = Product::with(['images', 'variation', 'subCategories.categories'])
+        $products = Product::with(['images', 'variation', 'subCategories.categories', 'product_enum'])
             ->where('is_delete', false)
             ->get();
+
+        $format = new ImageHelper();
+        foreach ($products as $product) {
+            if (!empty($product["images"])) {
+                $product["images"] = $format->formatProductImages($product["images"]);
+            }
+        }
+
         return response()->json([
             'status' => true,
             'message' => count($products) > 0 ? 'Products found' : 'No products found',
@@ -68,25 +94,31 @@ class ProductController extends Controller
 
     public function get_one_ring_product($productId)
     {
-        $product = Product::with(['images', 'variation', 'subCategories.categories'])
-            ->where('is_delete', false)
-            ->where('sub_category_id', '=', 1)
-            ->where('id', $productId)
-            ->first();
+        $productExists = Product::isRing($productId)->exists();
 
-        if ($product) {
-            return response()->json([
-                'status' => true,
-                'message' => 'Product found',
-                'product' => $product,
-            ], 200);
-        } else {
-            return response()->json([
-                'status' => false,
-                'message' => 'Product does not belong to ring category',
-            ], 404);
+        if ($productExists) {
+            $ring = Product::with(['images', 'variation', 'subCategories.categories'])
+                ->where('id', $productId)
+                ->first();
+
+            if ($ring) {
+                $format = new ImageHelper();
+                $ring->images = $format->formatProductImages($ring->images);
+
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Product found',
+                    'product' => $ring,
+                ], 200);
+            }
         }
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Product does not belong to ring category',
+        ], 404);
     }
+
 
     public function get_one_product($productId)
     {
@@ -132,6 +164,13 @@ class ProductController extends Controller
                 $products = Product::whereIn('sub_category_id', $subCategoryIds)->get();
             }
         }
+
+        $format = new ImageHelper();
+        foreach ($products as $product) {
+            if (!empty($product["images"])) {
+                $product["images"] = $format->formatProductImages($product["images"]);
+            }
+        }
         return response()->json([
             'status' => true,
             'message' => count($products) > 0 ? 'Products found' : 'No products found',
@@ -140,6 +179,9 @@ class ProductController extends Controller
     }
 
     // Filter products by gem shape and metal type
+
+    // it will serve the images first and the image names will be appended to it
+    public function get_all_ring_products(Request $request) {}
     public function search_products_step_one(Request $request)
     {
         $validated = $request->validate([
@@ -147,7 +189,10 @@ class ProductController extends Controller
             'metal_type_id' => 'nullable|integer',
         ]);
 
+
+
         $prod = collect();
+
 
         if (!empty($validated['gem_shape_id'])) {
             $gem_shape = Product::where('shape_id', $validated['gem_shape_id'])->get();
@@ -159,7 +204,13 @@ class ProductController extends Controller
             $prod = $prod->merge($metalTypeProducts);
         }
 
+        $format = new ImageHelper();
 
+        foreach ($prod as $product) {
+            if (!empty($product["images"])) {
+                $product["images"] = $format->formatProductImages($product["images"]);
+            }
+        }
         return response()->json([
             'status' => true,
             'message' => count($prod) > 0 ? 'Products found' : 'No products found',
@@ -195,7 +246,10 @@ class ProductController extends Controller
         if (!empty($validated['limit'])) {
             $products = $products->take($validated['limit']);
         }
-
+        $format = new ImageHelper();
+        foreach ($products as $product) {
+            $product["images"] = $format->formatProductImages($product["images"]);
+        }
         return response()->json([
             'status' => true,
             'message' => count($products) > 0 ? 'Products found' : 'No products found',
@@ -343,18 +397,12 @@ class ProductController extends Controller
         $search = $request->search;
         $all_product = Product::with(['images', 'variation', 'subCategories.categories'])->where('is_delete', false);
         $all_product_count = Product::with(['images', 'variation', 'subCategories.categories'])->where('is_delete', false);
+
         if (!empty($status)) {
             $all_product->where('status', $status);
             $all_product_count->where('status', $status);
         }
-        // if (!empty($role)) {
-        //     $all_product->whereHas('user', function ($q) use ($role) {
-        //         $q->whereRelation('role', 'name', $role);
-        //     });
-        //     $all_product_count->whereHas('user', function ($q) use ($role) {
-        //         $q->whereRelation('role', 'name', $role);
-        //     });
-        // }
+
         if (!empty($search)) {
             $all_product->where(function ($q) use ($search) {
                 $q->where('title', 'like', '%' . $search . '%')
@@ -374,6 +422,13 @@ class ProductController extends Controller
             });
         }
         $all_products = $all_product->skip($skip)->take($take)->get();
+        $format = new ImageHelper();
+
+
+        foreach ($all_products as $product) {
+            $product["images"] = $format->formatProductImages($product["images"]);
+        }
+
         $all_products_counts = $all_product_count->count();
         if (count($all_products)) return response()->json(['status' => true, 'Message' => 'Product found', 'Products' => ProductsResource::collection($all_products), 'ProductsCount' => $all_products_counts ?? []], 200);
         else return response()->json(['status' => false, 'Message' => 'Product not found', 'Products' => $all_products ?? [], 'ProductsCount' => $all_products_counts ?? []]);
@@ -704,7 +759,6 @@ class ProductController extends Controller
         }
     }
 
-    public function update_product_enum(Request $request) {}
 
     protected function check_product_exists($productId)
     {
@@ -833,14 +887,29 @@ class ProductController extends Controller
     public function image($productId)
     {
         $all_image = ProductImage::where('product_id', $productId)->get();
-        if (count($all_image)) return response()->json(['status' => true, 'Message' => 'Product Image found', 'Images' => $all_image], 200);
-        else return response()->json(['status' => false, 'Message' => 'Product Image not found']);
+
+
+        $productHelper = new ImageHelper();
+        $formattedImages = $productHelper->formatProductImages($all_image);
+
+        if ($formattedImages->isNotEmpty()) {
+            return response()->json(['status' => true, 'Message' => 'Product Image found', 'Images' => $formattedImages], 200);
+        }
+
+        return response()->json(['status' => false, 'Message' => 'Product Image not found']);
     }
+
     public function product_image_search($productImageId)
     {
         $all_image = ProductImage::where('id', $productImageId)->get();
-        if (count($all_image)) return response()->json(['status' => true, 'Message' => 'Product Image found', 'Images' => $all_image], 200);
-        else return response()->json(['status' => false, 'Message' => 'Product Image not found']);
+        $productHelper = new ImageHelper();
+        $formattedImages = $productHelper->formatProductImages($all_image);
+
+        if ($formattedImages->isNotEmpty()) {
+            return response()->json(['status' => true, 'Message' => 'Product Image found', 'Images' => $formattedImages], 200);
+        }
+
+        return response()->json(['status' => false, 'Message' => 'Product Image not found']);
     }
 
     public function delete(Request $request)
@@ -875,6 +944,12 @@ class ProductController extends Controller
 
             $isRing =  Product::isRing($valid['product_id'])->exists();
 
+            // if (!$isRing) {
+            //     $checkImage = ProductImage::where("product_id", $valid["product_id"])->first();
+            //     if ($checkImage) {
+            //         return response()->json(['status' => false, 'Message' => 'Cannot add more than one image for non-ring products'], 400);
+            //     }
+            // }
             $product_image = new ProductImage();
             $product_image->product_id = $request->product_id;
 
@@ -1441,86 +1516,53 @@ class ProductController extends Controller
 
         return response()->json(['message' => 'Product enum updated successfully', 'data' => $productEnum], 200);
     }
+
+    public function getAllRingProducts(Request $request)
+    {
+
+        $valid = Validator::make($request->all(), [
+            'metal_type' => 'nullable|exists:metal_type_categories,id',
+            'gem_shapes' => 'nullable|exists:gemshapes,id',
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+        }
+
+        $query = ProductVariation::with(['product', 'product_images'])
+            ->whereHas('product', function ($q) {
+                $q->where('sub_category_id', 1);
+            });
+
+        if ($request->metal_type) {
+            $query = $query->where('metal_type_id', $request->metal_type);
+        }
+        if ($request->gem_shapes) {
+            $query = $query->where('gem_shape_id', $request->gem_shapes);
+        }
+
+        $query = $query->get();
+
+        // // modify images
+        $format = new ImageHelper();
+        foreach ($query as $product) {
+            if (!empty($product["images"])) {
+                $product["images"] = $format->formatProductImages($product["images"]);
+            }
+        }
+        // modify prices
+
+        // $format = new ImageHelper();
+        // foreach ($format as $product) {
+        //     $product["images"] = $format->formatProductImages($product["images"]);
+        // }
+
+        // // modify title
+        // $format = new ImageHelper();
+        // foreach ($rings as $product) {
+        //     $product["images"] = $format->formatProductImages($product["images"]);
+        // }
+
+        return response()->json(['message' => 'Ring products', 'data' => $query], 200);
+    }
 }
-
-
-
-// public function update(Request $request)
-// {
-//     $valid = Validator::make($request->all(), [
-//         'id' => 'required',
-//         'title' => 'required',
-//         'price' => 'nullable',
-//         'discount' => 'nullable',
-//         'product_desc' => 'required',
-//         // 'product_image' => 'required|array',
-//         'variations' => 'required',
-//         'tags' => 'required',
-//         'sub_category_id' => 'required',
-//         // 'brand' => 'required',
-//         // 'product_status' => 'required',
-//         // 'product_selected_qty' => 'nullable',
-//         // 'category' => 'required',
-//         // 'featured' => 'required',
-//     ]);
-
-//     if ($valid->fails()) {
-//         return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
-//     }
-//     try {
-//         DB::beginTransaction();
-//         $user = auth()->user();
-//         if ($user->role->name == 'wholesaler' || $user->role->name == 'retailer') {
-//             // $payment = PackagePayment::where('user_id', $user->id)->where('end_date', '<', Carbon::now())->first();
-//             // // $payment exist means expired payment;
-//             // if ($payment || $user->is_active == false) throw new Error("Please buy package!");
-//             // $productCount = Product::where('user_id', $user->id)->count();
-//             // $packageProductCount = PackagePayment::where('user_id', $user->id)->first();
-//             // $qty = $packageProductCount->updated_product_qty;
-//             // if ($productCount >= $qty) throw new Error("Your Product limit is full now you buy new package!");
-//             $product = Product::where('id', $request->id)->first();
-//             $product->user_id = $user->id;
-//             $product->sub_category_id = $request->sub_category_id;
-//             $product->title = $request->title;
-//             $product->price = $request->price;
-//             $product->discount_price = $request->discount;
-//             $product->tags = json_encode($request->tags);
-//             $product->desc = $request->product_desc;
-//             $product->is_featured = $request->featured ?? false;
-//             if (!$product->save()) throw new Error("Product not Updated!");
-//             if (!empty($request->product_image)) {
-//                 foreach ($request->product_image as $image) {
-//                     $product_image = new ProductImage();
-//                     $product_image->product_id = $product->id;
-//                     $filename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
-//                     $image->storeAs('product', $filename, "public");
-//                     $product_image->image = "product/" . $filename;
-//                     if (!$product_image->save()) throw new Error("Product Images not added!");
-//                 }
-//             }
-//             if (!empty($request->variations)) {
-//                 $existVariation = ProductVariation::where('product_id', $product->id)->get();
-//                 if (!empty($existVariation)) {
-//                     foreach ($existVariation as $key => $value) {
-//                         $value->delete();
-//                     }
-//                 }
-//                 foreach ($request->variations as $variation) {
-//                     if (is_object($variation)) $variation = $variation->toArray();
-//                     $newVariation = new ProductVariation();
-//                     $newVariation->product_id = $product->id;
-//                     $newVariation->size = $variation['size'];
-//                     $newVariation->stock = $variation['stock'];
-//                     $newVariation->price = $variation['price'];
-//                     if (!$newVariation->save()) throw new Error("Product Variations not added!");
-//                 }
-//             }
-//             $products = Product::has('user')->with(['user', 'images', 'variation', 'subCategories.categories', 'reviews.users'])->where('id', $product->id)->first();
-//             DB::commit();
-//             return response()->json(['status' => true, 'Message' => 'Product Updated Successfully!', 'Products' => new ProductsResource($products) ?? []], 200);
-//         } else throw new Error("Authenticated User Required!");
-//     } catch (\Throwable $th) {
-//         DB::rollBack();
-//         return response()->json(['status' => false, 'Message' => $th->getMessage()]);
-//     }
-// }

@@ -238,10 +238,9 @@ class CartController extends Controller
     public function showCart()
     {
         try {
-            $userID = auth()->user()->id;
-
+            $user = auth()->user()->id;
             // Retrieve all cart items for the user
-            $cartItems = Cart::session($userID)->getContent();
+            $cartItems = Cart::session($user)->getContent();
 
             if ($cartItems->isEmpty()) {
                 return response()->json([
@@ -264,6 +263,7 @@ class CartController extends Controller
                     'quantity' => $item->quantity,
                     'attributes' => $item->attributes, // Customizables
                     'total' => $item->getPriceSum(),
+                    'user_id' => auth()->user()->id,
                     'product' => $product ? [
                         'id' => $product->id,
                         'title' => $product->title,
@@ -281,7 +281,7 @@ class CartController extends Controller
                 'success' => true,
                 'message' => 'Cart retrieved successfully',
                 'cart_items' => $formattedCartItems,
-                'cart_total' => Cart::session($userID)->getTotal(),
+                'cart_total' => Cart::session($user)->getTotal(),
             ]);
         } catch (Exception $e) {
             return response()->json([

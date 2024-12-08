@@ -429,7 +429,7 @@
     <div class="col-4"></div>
     <div class="col-2">
         @php
-        $order_id = 7;
+        $order_id = $_GET["order"] ?? 7;
         @endphp
         <form action="{{route("test")}}" method="POST">
             <input type="hidden" name="_token" value="{{csrf_token()}}">

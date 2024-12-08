@@ -4,8 +4,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{Api, RingEnumController};
 use App\Http\Controllers;
+use Illuminate\Support\Facades\File;
 
-/*
+/*use Illuminate\Support\Facades\File;
+
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
@@ -22,7 +24,7 @@ Route::post('/signup/valid/page2', [Api\AuthController::class, 'signupValidPage2
 Route::post('/signup/valid/page3', [Api\AuthController::class, 'signupValidPage3']);
 Route::post('/signup/defaulter', [Api\AuthController::class, 'signupDefaulter']);
 Route::post('/check/referral', [Api\AuthController::class, 'checkReferral']);
-Route::post('/login', [Api\AuthController::class, 'login'])->name('login');
+Route::post('/login', [Api\AuthController::class, 'login']);
 Route::post('/reset', [Api\AuthController::class, 'reset']);
 Route::post('/forgot', [Api\AuthController::class, 'forgot']);
 
@@ -225,9 +227,6 @@ Route::prefix('api/v1')->group(function () {
             Route::get('/home_page', [Api\ProductController::class, 'search_products_homepage']);
         });
 
-
-
-
         Route::prefix('gemshapes')->group(function () {
             Route::get('/', [Api\GemshapeController::class, 'index']);
             Route::get('/{id}', [Api\GemshapeController::class, 'show']);
@@ -274,6 +273,19 @@ Route::prefix('api/v1')->group(function () {
             Route::put('{id}',  [Api\BespokeCustomizationTypeController::class, 'update']);
             Route::delete('{id}', [Api\BespokeCustomizationTypeController::class, 'destroy']);
         });
+
+        Route::prefix('metal_type_category')->group(function () {
+            Route::get('/', [Api\MetalTypeCategoryController::class, 'index']);
+            Route::get('{id}', [Api\MetalTypeCategoryController::class, 'show']);
+            Route::post('/', [Api\MetalTypeCategoryController::class, 'store']);
+            Route::post('{id}', [Api\MetalTypeCategoryController::class, 'update']);
+            Route::delete('{id}', [Api\MetalTypeCategoryController::class, 'destroy']);
+        });
+
+
+        Route::prefix('front')->group(function () {
+            Route::post('/', [Api\ProductController::class, 'getAllRingProducts']);
+        });
     });
 
     Route::prefix("customization")->group(function () {
@@ -289,6 +301,15 @@ Route::prefix('api/v1')->group(function () {
 
         Route::get('/birth_stone', [RingEnumController::class, 'getBirthStone']);
         Route::get('/gem_stone_faceting', [RingEnumController::class, 'getGemStoneFaceting']);
+    });
+
+    Route::prefix('variations')->group(function () {
+        Route::get('/', [Api\ProductVariationController::class, 'index']);
+        Route::get('/{id}', [Api\ProductVariationController::class, 'show']);
+        Route::post('/', [Api\ProductVariationController::class, 'store']);
+        Route::post('/update/{id}', [Api\ProductVariationController::class, 'update']);
+        Route::delete('/{id}', [Api\ProductVariationController::class, 'destroy']);
+        Route::post('/connect-image', [Api\ProductVariationController::class, 'connectProductImage']);
     });
 });
 // Route::get('/', function () {
@@ -357,6 +378,9 @@ Route::post('/stripe/live', [Api\StripeController::class, "live"])->name("live")
 Route::post('/stripe/getAllTransaction',  [Api\StripeController::class, "getStripeTransactions"]);
 Route::post('/stripe/getSingleCharge',  [Api\StripeController::class, "getSingleCharge"]);
 Route::post('/stripe/getCustomerTransactions',  [Api\StripeController::class, "getCustomerTransactions"]);
+Route::post('/stripe/refundTransaction',  [Api\StripeController::class, "refundTransaction"]);
+
+
 
 //refund
 Route::post('/stripe/refundTransaction',  [Api\StripeController::class, "refundTransaction"]);
@@ -364,9 +388,8 @@ Route::post('/stripe/refundTransaction',  [Api\StripeController::class, "refundT
 
 
 //send email on successful transaction
+// 127.0.0.1:8000/stripe/webhook
 Route::post('/stripe/webhook', [Api\StripeController::class, 'handleWebhook']);
-
-
 Route::post('stripe/status/inquiry', [Api\StripeController::class, "jazzcashStatusInquiry"]);
 Route::post('easypaisa/checkout', [Api\StripeController::class, "easypaisaCheckout"]);
 Route::post('payment/status', [Api\StripeController::class, "jazzcashPaymentStatus"]);
@@ -381,20 +404,26 @@ Route::post('payment/status', [Api\StripeController::class, "jazzcashPaymentStat
 Route::group(['middleware' => ['auth:api']], function () {
 
     //only one ring can go to cart
-    Route::post('/add-to-cart', [Api\CartController::class, 'addToCart'])->name('addToCart');
-    Route::post('/update-cart', [Api\CartController::class, 'updateCart'])->name('updateCart');
-    Route::post('/update-cart-customization', [Api\CartController::class, 'updateCartCustomization']);
+    Route::prefix('cart')->group(function () {
 
-    Route::post('/remove-cart', [Api\CartController::class, 'removeCart'])->name('removeCart');
-    Route::post('/clear-cart', [Api\CartController::class, 'clearCart'])->name('clearCart');
-    Route::get('/show-cart', [Api\CartController::class, 'showCart'])->name('cart.show');
-
-    Route::get('/wishlist/view', [Api\WishListController::class, 'viewWishlist']);
-    Route::post('/wishlist/add', [Api\WishListController::class, 'addToWishlist'])->name('addToWishlist');
-    Route::post('/wishlist/back', [Api\WishListController::class, 'backToCart'])->name('backToCart');
-    Route::post('/wishlist/remove', [Api\WishListController::class, 'removeFromWishlist'])->name('removeFromWishlist');
+        Route::post('/add-to-cart', [Api\CartController::class, 'addToCart']);
+        Route::post('/update-cart', [Api\CartController::class, 'updateCart']);
+        Route::post('/update-cart-customization', [Api\CartController::class, 'updateCartCustomization']);
+        Route::post('/remove-cart', [Api\CartController::class, 'removeCart']);
+        Route::post('/clear-cart', [Api\CartController::class, 'clearCart']);
+        Route::get('/show-cart', [Api\CartController::class, 'showCart']);
+    });
+    Route::prefix('wishlist')->group(function () {
+        Route::get('/view', [Api\WishListController::class, 'viewWishlist']);
+        Route::post('/add', [Api\WishListController::class, 'addToWishlist']);
+        Route::post('/back', [Api\WishListController::class, 'backToCart']);
+        Route::post('/empty', [Api\WishListController::class, 'removeAllFromWishlist']);
+        Route::post('/remove', [Api\WishListController::class, 'removeFromWishlist']);
+    });
 });
 
+
+Route::get('/serve-file/{filename}', [Api\FileController::class, 'serveFile'])->name('serve-file');
 
 //ring_customizaiton_page1:
 

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Mail\ReceiptMail;
+use App\Mail\RefundNotificationMail;
+
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Stripe\Checkout\Session;
@@ -16,6 +18,8 @@ use Stripe\Customer;
 use Stripe\Webhook;
 use Illuminate\Support\Facades\Log;
 use Stripe\Charge;
+use Stripe\Refund;
+use Illuminate\Support\Facades\Validator;
 
 
 class StripeController extends Controller
@@ -81,11 +85,13 @@ class StripeController extends Controller
         $order = Order::find($request->order_id);
 
         if (!$order) {
-            return response()->json(['status' => false, 'Message' => 'Order Failed!'], 404);
+            return response()->json(['status' => false, 'Message' => 'Order does not exist Failed!'], 404);
         }
-        $orderProducts = OrderProduct::where('order_id', $order->id)
-            ->join('products', 'products.id', '=', 'order_products.product_id')
-            ->get();
+        // if ($order->pay_status == "paid") {
+        //     return response()->json(['status' => false, 'Message' => 'Order is already paid!'], 404);
+        // }
+
+        $orderProducts = $order->user_orders()->get();
 
 
         Customer::create([
@@ -131,8 +137,8 @@ class StripeController extends Controller
                     'net_amount'      => $order->net_amount,
                 ],
             ],
-            'success_url' => route('checkout', ['order' => $order->order_number]),
-            'cancel_url'  => route('checkout', ['order' => $order->order_number]),
+            'success_url' => route('checkout', ['order' => $order->id]),
+            'cancel_url'  => route('checkout', ['order' => $order->id]),
         ]);
 
 
@@ -140,6 +146,48 @@ class StripeController extends Controller
         // Mail::to($order->email)->send(new ReceiptMail($receiptUrl, $order));
         return redirect()->away($session->url);
     }
+
+
+
+    public function refundTransaction(Request $request)
+    {
+        $valid = Validator::make($request->all(), [
+            'payment_intent_id' => 'required|string'
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Validation errors',
+                'errors' => $valid->errors(),
+                'request_data' => $request->all()
+            ]);
+        }
+
+
+        $validated = $valid->validated();
+        Stripe::setApiKey(config($this->testKeys)); // Set the Stripe API key
+
+        // Retrieve the payment intent ID from the request
+        $paymentIntentId = $validated["payment_intent_id"];
+
+        if (!$paymentIntentId) {
+            return response()->json(data: ['status' => false, 'message' => 'Payment Intent ID is required']);
+        }
+
+        try {
+            // Create a full refund by omitting the amount
+            $refund = Refund::create([
+                'payment_intent' => $paymentIntentId,
+            ]);
+
+            return response()->json(['status' => true, 'message' => 'Full refund successful', 'refund' => $refund], 200);
+        } catch (\Exception $e) {
+            Log::info("Error from StripeController test" . $e->getMessage());
+            return response()->json(['status' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
 
     public function handleWebhook(Request $request)
     {
@@ -170,27 +218,101 @@ class StripeController extends Controller
         // Handle the event
         switch ($event->type) {
             case 'checkout.session.completed':
-                $paymentIntent = $event->data->object; // Contains a Stripe PaymentIntent object
-                $orderNumber = $paymentIntent->metadata->order_number ?? null;
+                try {
 
-                if ($orderNumber) {
+                    $paymentIntent = $event->data->object; // Contains a Stripe PaymentIntent object
+                    $orderNumber = $paymentIntent->metadata->order_number ?? null;
 
-                    $order = Order::where('order_number', $orderNumber)->first();
-                    if ($order) {
-                        $receiptUrl = $paymentIntent->charges->data[0]->receipt_url ?? null;
-                        Mail::to($order->email)->send(new ReceiptMail($order, $receiptUrl));
+                    $paymentSession = $paymentIntent->payment_intent ?? null;
+                    $retrievedPaymentIntent = \Stripe\PaymentIntent::retrieve($paymentSession);
+                    $chargeId = $retrievedPaymentIntent->latest_charge ?? null;
+                    if ($orderNumber) {
+                        $order = Order::where('order_number', $orderNumber)->first();
+                        if ($order) {
+                            try {
+                                $receiptUrl = $paymentIntent->charges->data[0]->receipt_url ?? null;
+                                Mail::to($order->email)->send(new ReceiptMail($order, $receiptUrl));
 
-                        return response()->json([
-                            'status' => true,
-                            'message' => 'Payment succeeded, email sent!',
-                        ], 200);
+                                $order->pay_status = "paid";
+                                $order->save();
+
+                                $payment = $order->payments()->first();
+                                if ($payment) {
+                                    $payment->update([
+                                        'txt_refno' => $retrievedPaymentIntent->id,
+                                        'response_code' => $chargeId,
+                                    ]);
+                                }
+
+                                return response()->json([
+                                    'status' => true,
+                                    'message' => 'Payment succeeded, email sent!',
+                                ], 200);
+                            } catch (\Exception $e) {
+                                Log::error("Error processing payment for order {$orderNumber}: " . $e->getMessage());
+                            }
+                        } else {
+                            Log::warning("Order not found for order number: {$orderNumber}");
+                        }
+                    } else {
+                        Log::warning('Order number missing in payment intent metadata.');
                     }
+                } catch (\Exception $e) {
+                    Log::error("Error handling checkout.session.completed event from StripeContoller :  " . $e->getMessage());
                 }
 
                 return response()->json([
                     'status' => false,
                     'message' => 'Order not found for payment intent',
                 ], 405);
+
+
+            case 'charge.refunded':
+                try {
+                    // Retrieve the charge object from the event data
+                    $charge = $event->data->object; // Contains the Stripe Charge object
+
+                    // Get the payment intent ID associated with the charge
+                    $paymentIntentId = $charge->payment_intent ?? null;
+
+                    if ($paymentIntentId) {
+                        // Find the order using the payment intent ID
+                        $order = Order::where('payment_intent_id', $paymentIntentId)->first();
+
+                        if ($order) {
+
+
+                            $payment = $order->payments()->first();
+                            if ($payment) {
+                                $payment->update([
+                                    'response_message' => "refunded"
+                                ]);
+                            }
+
+                            // Optionally, notify the user about the full refund
+                            Mail::to($order->email)->send(new RefundNotificationMail($order));
+
+                            // Log the refund process success
+                            Log::info("Full refund processed for order {$order->order_number}, status updated to refunded.");
+
+                            return response()->json([
+                                'status' => true,
+                                'message' => 'Full refund processed and order updated!',
+                            ], 200);
+                        } else {
+                            Log::warning("Order not found for payment intent ID: {$paymentIntentId}");
+                        }
+                    } else {
+                        Log::warning('Payment intent ID missing in refunded charge.');
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Error processing charge.refunded event: " . $e->getMessage());
+                }
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Failed to process refund.',
+                ], 400);
 
             default:
                 return response()->json(['status' => false, 'message' => 'Unhandled event type'], 400);

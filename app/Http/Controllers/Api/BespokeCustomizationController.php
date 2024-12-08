@@ -91,6 +91,7 @@ class BespokeCustomizationController extends Controller
         }
         $BespokeCustomization->image = $this->formatImageUrl($BespokeCustomization->image);
 
+
         return response()->json($BespokeCustomization);
     }
 
