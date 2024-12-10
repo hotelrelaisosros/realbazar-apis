@@ -739,7 +739,7 @@ class ProductController extends Controller
                     //     throw new Error("Customizations are not enabled for this product!");
                     // }
                 }
-                $products = Product::has('user')->with(['productEnum', 'user', 'images', 'variation', 'subCategories.categories'])
+                $products = Product::has('user')->with(['product_enum', 'user', 'images', 'variation', 'subCategories.categories'])
                     ->where('id', $new_product->id)->first();
                 // $user = User::whereRelation('role', 'name', 'admin')->first();
                 // $title = 'NEW PRODUCT';

@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ["*"], // Leave empty if using patterns
+    'allowed_origins' => ['https://mydomain.com', 'http://localhost:3000'],
 
     'allowed_origins_patterns' => ["*"],
     'allowed_headers' => ['*'],
