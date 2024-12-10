@@ -10,6 +10,7 @@ use App\Models\BandWidth;
 use App\Models\BespokeCustomization;
 use App\Models\BespokeCustomizationType;
 use App\Models\BirthStone;
+use App\Models\Gemshape;
 use App\Models\MetalTypeCategory;
 use App\Models\ProductEnum;
 use App\Models\ProductVariation;
@@ -106,6 +107,20 @@ class ProductSeeder extends Seeder
             MetalTypeCategory::create($stoneType);
         }
 
+        $gem_shapes = [
+            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
+            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
+            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
+            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
+            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
+        ];
+        foreach ($gem_shapes as $stoneType) {
+            Gemshape::create($stoneType);
+        }
+
+
+
+
         $bespoke_customization_style = [
             ['name' => 'Pavé Bridge', "image" => "upload/images/bspoke/image1.png"],
             ['name' => 'Pavé Band', "image" => "upload/images/bspoke/image1.png"],
@@ -197,17 +212,17 @@ class ProductSeeder extends Seeder
 
         //variation seeder
 
-        // $metal_type_category = [
-        //     ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-        //     ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-        //     ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-        //     ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-        //     ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-        //     ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-        // ];
-        // foreach ($metal_type_category as $stoneType) {
-        //     ProductVariation::create($stoneType);
-        // }
+        $metal_type_category = [
+            ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+        ];
+        foreach ($metal_type_category as $stoneType) {
+            MetalTypeCategory::create($stoneType);
+        }
 
         for ($i = 0; $i < 3; $i++) {
             $product = new Product();
@@ -256,6 +271,24 @@ class ProductSeeder extends Seeder
                 // $product->product_enum_id = 0;
                 $product->save();
             }
+        }
+
+
+        $metalTypes = MetalTypeCategory::pluck('id')->toArray();
+        $gemShapes = Gemshape::pluck('id')->toArray();
+        $products = Product::pluck('id')->toArray();
+
+        // Seed product variations
+        foreach ($products as $productId) {
+            ProductVariation::create([
+                'product_id' => $productId,
+                'title' => 'Variation for Product ' . $productId,
+                'size' => rand(5, 12) . 'mm',
+                'stock' => rand(10, 100),
+                'price' => rand(100, 1000),
+                'metal_type_id' => $metalTypes[array_rand($metalTypes)],
+                'gem_shape_id' => $gemShapes[array_rand($gemShapes)],
+            ]);
         }
     }
 }

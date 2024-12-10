@@ -1552,6 +1552,28 @@ class ProductController extends Controller
         }
         // modify prices
 
+
+        foreach ($query as $key => $title) {
+            if (isset($title['title']) && isset($title['product']['title'])) {
+                $query[$key]['product_title'] = $title['product']['title'] . " - " . $title['title'];
+            }
+        }
+
+        foreach ($query as $key => $title) {
+            if (isset($title['price']) && isset($title['product']['price'])) {
+                $query[$key]['total_price'] = $title['product']['price'] + $title['price'] - $title['product']['discount_price'];
+            }
+            if (isset($title['product']['discount_price'])) {
+                $query[$key]['total_discount'] = $title['product']['discount_price'];
+            }
+        }
+
+
+
+        // $format = new ImageHelper();
+        // foreach ($format as $product) {
+        //     $product["images"] = $format->formatProductImages($product["images"]);
+        // }
         // $format = new ImageHelper();
         // foreach ($format as $product) {
         //     $product["images"] = $format->formatProductImages($product["images"]);
