@@ -26,7 +26,7 @@ class MetalTypeCategoryController extends Controller
     public function store(Request $request)
     {
         $valid = Validator::make($request->all(), [
-            'type' => 'required|in:P,YG,RG,WG,YP,RP',
+            'type' => 'nullable|in:P,YG,RG,WG,YP,RP',
             'title' => 'required|string|max:255',
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
@@ -77,7 +77,7 @@ class MetalTypeCategoryController extends Controller
     public function update(Request $request, $id)
     {
         $valid = Validator::make($request->all(), [
-            'type' => 'required|in:P,YG,RG,WG,YP,RP',
+            'type' => 'nullable|in:P,YG,RG,WG,YP,RP',
             'title' => 'required|string|max:255',
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
