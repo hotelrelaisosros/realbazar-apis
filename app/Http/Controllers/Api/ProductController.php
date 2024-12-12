@@ -38,6 +38,7 @@ use App\Models\ProngStyle;
 use App\Models\RingSize;
 use App\Models\SettingHeight;
 use App\Helpers\ImageHelper;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -954,25 +955,44 @@ class ProductController extends Controller
             $product_image->product_id = $request->product_id;
 
             if ($request->hasFile('product_single_image')) {
+                // Ensure the product directory exists
+                $productDir = 'product/' . $request->product_id;
+                if (!Storage::disk('public')->exists($productDir)) {
+                    Storage::disk('public')->makeDirectory($productDir);
+                }
+
                 $filename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
-                $request->product_single_image->storeAs('product/' . $request->product_id, $filename, "public");
-                $product_image->image = "product/" . $request->product_id . "/" . $filename;
+                $request->product_single_image->storeAs($productDir, $filename, "public");
+                $product_image->image = $productDir . "/" . $filename;
 
                 if ($isRing) {
                     $product_image->name = $valid["name"];
+
+                    // Ensure the small-icon directory exists
+                    $smallIconDir = $productDir . "/small-icon";
+                    if (!Storage::disk('public')->exists($smallIconDir)) {
+                        Storage::disk('public')->makeDirectory($smallIconDir);
+                    }
+
                     $smallImageFilename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
-                    $request->product_single_image->storeAs('product/' . $request->product_id . "/small-icon", $smallImageFilename, "public");
-                    $product_image->small_image = "product/" . $request->product_id . "/small-icon/" . $smallImageFilename;
+                    $request->product_single_image->storeAs($smallIconDir, $smallImageFilename, "public");
+                    $product_image->small_image = $smallIconDir . "/" . $smallImageFilename;
                 }
             }
 
             $multiple_images = [];
             if ($request->has('product_multiple_images') && is_array($request->product_multiple_images)) {
                 foreach ($request->product_multiple_images as $image) {
-                    $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
-                    $image->storeAs('product/' . $request->product_id . '/additional', $imageFilename, "public");
+                    // Ensure the additional images directory exists
+                    $additionalDir = $productDir . '/additional';
+                    if (!Storage::disk('public')->exists($additionalDir)) {
+                        Storage::disk('public')->makeDirectory($additionalDir);
+                    }
 
-                    $multiple_images[] = "product/" . $request->product_id . '/additional/' . $imageFilename;
+                    $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
+                    $image->storeAs($additionalDir, $imageFilename, "public");
+
+                    $multiple_images[] = $additionalDir . '/' . $imageFilename;
                 }
                 $product_image->image_collection = json_encode($multiple_images, JSON_UNESCAPED_SLASHES);
             }

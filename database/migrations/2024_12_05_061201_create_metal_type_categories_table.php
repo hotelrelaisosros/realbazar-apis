@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::create('metal_type_categories', function (Blueprint $table) {
             $table->id();
-            $table->enum('type', ["P", "YG", "RG", "WG", "YP", "RP"]);
+            $table->enum('type', ["P", "YG", "RG", "WG", "YP", "RP"])->nullable();
             $table->string("title");
             $table->string('image');
             $table->timestamps();
