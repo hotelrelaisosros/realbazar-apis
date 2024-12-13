@@ -776,9 +776,9 @@ class ProductController extends Controller
             'price' => 'nullable',
             'discount' => 'nullable',
             'product_desc' => 'required',
-            'product_single_image' => 'nullable',
-            'product_multiple_images' => 'nullable|array',
-            'variations' => 'required',
+            // 'product_single_image' => 'nullable',
+            // 'product_multiple_images' => 'nullable|array',
+            'variations' => 'nullable',
             'tags' => 'required',
             'sub_category_id' => 'required',
 
@@ -810,29 +810,29 @@ class ProductController extends Controller
 
             // Single image update for sub_category_id =1 only non rings are updatable
 
-            if ($product->sub_category_id != 1) {
-                if ($request->hasFile('product_single_image')) {
-                    $product_image = ProductImage::where('product_id', $product->id)->first() ?? new ProductImage();
-                    $product_image->product_id = $product->id;
+            // if ($product->sub_category_id != 1) {
+            //     if ($request->hasFile('product_single_image')) {
+            //         $product_image = ProductImage::where('product_id', $product->id)->first() ?? new ProductImage();
+            //         $product_image->product_id = $product->id;
 
-                    $filename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
-                    $request->product_single_image->storeAs('product/' . $product->id, $filename, "public");
-                    $product_image->image = "product/" . $product->id . "/" . $filename;
+            //         $filename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
+            //         $request->product_single_image->storeAs('product/' . $product->id, $filename, "public");
+            //         $product_image->image = "product/" . $product->id . "/" . $filename;
 
-                    // Multiple images update
-                    $multiple_images = [];
-                    if ($request->has('product_multiple_images') && is_array($request->product_multiple_images)) {
-                        foreach ($request->product_multiple_images as $image) {
-                            $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
-                            $image->storeAs('product/' . $product->id . '/additional', $imageFilename, "public");
-                            $multiple_images[] = "product/" . $product->id . '/additional' . "/" . $imageFilename;
-                        }
-                        $product_image->image_collection = str_replace('\/', '/', json_encode($multiple_images));
-                    }
+            //         // Multiple images update
+            //         $multiple_images = [];
+            //         if ($request->has('product_multiple_images') && is_array($request->product_multiple_images)) {
+            //             foreach ($request->product_multiple_images as $image) {
+            //                 $imageFilename = "Product-" . time() . "-" . rand() . "." . $image->getClientOriginalExtension();
+            //                 $image->storeAs('product/' . $product->id . '/additional', $imageFilename, "public");
+            //                 $multiple_images[] = "product/" . $product->id . '/additional' . "/" . $imageFilename;
+            //             }
+            //             $product_image->image_collection = str_replace('\/', '/', json_encode($multiple_images));
+            //         }
 
-                    if (!$product_image->save()) throw new Error("Product image not saved!");
-                }
-            }
+            //         if (!$product_image->save()) throw new Error("Product image not saved!");
+            //     }
+            // }
 
             if ($product->sub_category_id == 1) {
                 $product_enum = new ProductEnum();
@@ -858,19 +858,19 @@ class ProductController extends Controller
             }
 
 
-            if (!empty($request->variations)) {
-                ProductVariation::where('product_id', $product->id)->delete();
+            // if (!empty($request->variations)) {
+            //     ProductVariation::where('product_id', $product->id)->delete();
 
-                foreach ($request->variations as $variation) {
-                    if (is_object($variation)) $variation = $variation->toArray();
-                    $newVariation = new ProductVariation();
-                    $newVariation->product_id = $product->id;
-                    $newVariation->size = $variation['size'];
-                    $newVariation->stock = $variation['stock'];
-                    $newVariation->price = $variation['price'];
-                    if (!$newVariation->save()) throw new Error("Product Variations not added!");
-                }
-            }
+            //     foreach ($request->variations as $variation) {
+            //         if (is_object($variation)) $variation = $variation->toArray();
+            //         $newVariation = new ProductVariation();
+            //         $newVariation->product_id = $product->id;
+            //         $newVariation->size = $variation['size'];
+            //         $newVariation->stock = $variation['stock'];
+            //         $newVariation->price = $variation['price'];
+            //         if (!$newVariation->save()) throw new Error("Product Variations not added!");
+            //     }
+            // }
 
             $products = Product::has('user')->with(['images', 'variation', 'subCategories.categories'])
                 ->where('id', $product->id)->first();
