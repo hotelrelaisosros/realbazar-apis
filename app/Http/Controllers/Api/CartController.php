@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\CartItem;
 use App\Jobs\RemoveCartItem;
 use App\Models\ProductImage;
+use App\Models\ProductVariation;
+
 
 class CartController extends Controller
 {
@@ -29,7 +31,8 @@ class CartController extends Controller
     {
         $valid = Validator::make($request->all(), [
             'product_id' => 'required|numeric|exists:products,id',
-            'product_image_id' => 'nullable|numeric|exists:product_images,id'
+            'product_image_id' => 'nullable|numeric|exists:product_images,id',
+            'variation_id' => 'nullable|numeric|exists:product_variations,id'
         ]);
 
         if ($valid->fails()) {
@@ -46,13 +49,21 @@ class CartController extends Controller
 
         $product = Product::find($validated["product_id"]);
 
+        $variation = null;
+        $productImage = null;
 
-
-        if ($validated["product_image_id"]) {
-            $productImage = ProductImage::where('id', $validated["product_image_id"])->first();
-            $productImage->image = $this->formatImageUrl($productImage->image);
-        } else {
-            $productImage = [];
+        if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
+            $productImage = ProductImage::find($validated["product_image_id"]);
+            if ($productImage) {
+                $productImage->image = $this->formatImageUrl($productImage->image);
+            }
+        } elseif (!empty($validated["product_image_id"]) && !empty($validated["variation_id"])) {
+            $variation = ProductVariation::find($validated["variation_id"]);
+            if ($variation) {
+                $productImage = ProductImage::where('id', $validated["product_image_id"])
+                    ->where('variant_id', $variation->id)
+                    ->first();
+            }
         }
 
 
@@ -75,8 +86,6 @@ class CartController extends Controller
         }
 
         try {
-            // Determine the cart item ID
-            // If it's a ring, use product ID with a unique custom ID, else just use product ID
 
             $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
 
@@ -89,7 +98,8 @@ class CartController extends Controller
                 'attributes' => $customizables, // Only rings will have attributes
                 'associatedModel' => [
                     'product' => $product,
-                    'product_image' => $productImage
+                    'product_image' => $productImage,
+                    'variation' => $variation,
                 ],
             ];
 
@@ -254,6 +264,8 @@ class CartController extends Controller
             $formattedCartItems = $cartItems->map(function ($item) {
                 $associatedModel = $item->associatedModel;
                 $product = $associatedModel['product'] ?? null;
+                $variations = $associatedModel['variation'] ?? null;
+
                 $productImage = $associatedModel['product_image'] ?? null;
 
                 return [
@@ -273,6 +285,10 @@ class CartController extends Controller
                     'product_image' => $productImage ? [
                         'id' => $productImage->id,
                         'image' => $productImage->image,
+                    ] : null,
+                    'variation' => $variations ? [
+                        'id' => $variations->id,
+                        'price' => $variations->price,
                     ] : null,
                 ];
             });

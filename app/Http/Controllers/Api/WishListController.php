@@ -8,6 +8,7 @@ use Darryldecode\Cart\Facades\CartFacade as Cart;
 use App\Models\Product;
 use App\Models\ProductImage;
 use Illuminate\Support\Facades\Log;
+use App\Models\ProductVariation;
 
 use Illuminate\Support\Facades\Validator;
 use Exception;
@@ -50,28 +51,39 @@ class WishListController extends Controller
     {
         $valid = Validator::make($request->all(), [
             'product_id' => 'required|numeric|exists:products,id',
-            'product_image_id' => 'nullable|numeric|exists:product_images,id'
+            'product_image_id' => 'nullable|numeric|exists:product_images,id',
+            'variation_id' => 'nullable|numeric|exists:product_variations,id'
         ]);
 
         if ($valid->fails()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Validation errors',
+                'Message' => 'Validation errors',
                 'errors' => $valid->errors(),
-            ], 422);
+                'request_data' => $request->all()
+            ]);
         }
+
 
         $validated = $valid->validated();
 
-
-
         $product = Product::find($validated["product_id"]);
 
-        if ($validated["product_image_id"]) {
-            $productImage = ProductImage::where('id', $validated["product_image_id"])->first();
-            $productImage->image = $this->formatImageUrl($productImage->image);
-        } else {
-            $productImage = [];
+        $variation = null;
+        $productImage = null;
+
+        if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
+            $productImage = ProductImage::find($validated["product_image_id"]);
+            if ($productImage) {
+                $productImage->image = $this->formatImageUrl($productImage->image);
+            }
+        } elseif (!empty($validated["product_image_id"]) && !empty($validated["variation_id"])) {
+            $variation = ProductVariation::find($validated["variation_id"]);
+            if ($variation) {
+                $productImage = ProductImage::where('id', $validated["product_image_id"])
+                    ->where('variant_id', $variation->id)
+                    ->first();
+            }
         }
         if (!$product) {
             return response()->json(['error' => 'Product not found'], 404);
@@ -115,6 +127,8 @@ class WishListController extends Controller
             'associatedModel' => [
                 'product' => $product,
                 'product_image' => $productImage,
+                'variation' => $variation,
+
             ],
         ]);
 
@@ -149,6 +163,7 @@ class WishListController extends Controller
                 $associatedModel = $item->associatedModel;
                 $product = $associatedModel['product'] ?? null;
                 $productImage = $associatedModel['product_image'] ?? null;
+                $variations = $associatedModel['variation'] ?? null;
 
                 return [
                     'wishlist_id' => $item->id, // Unique wishlist ID
@@ -167,6 +182,10 @@ class WishListController extends Controller
                     'product_image' => $productImage ? [
                         'id' => $productImage->id,
                         'image' => $this->formatImageUrl($productImage->image),
+                    ] : null,
+                    'variation' => $variations ? [
+                        'id' => $variations->id,
+                        'price' => $variations->price,
                     ] : null,
                 ];
             });
@@ -300,78 +319,6 @@ class WishListController extends Controller
             'status' => true,
             'cart ' => $get_user,
             'wishlist' => $wishlist,
-            'message' => 'Product moved to cart successfully',
-        ]);
-    }
-
-
-    public function showCart()
-    {
-        try {
-            $user = auth()->user()->id;
-            // Retrieve all cart items for the user
-            $cartItems = Cart::session($user)->getContent();
-
-            if ($cartItems->isEmpty()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Cart is empty',
-                    'cart_items' => [],
-                ]);
-            }
-
-            // Format the cart data for response
-            $formattedCartItems = $cartItems->map(function ($item) {
-                $associatedModel = $item->associatedModel;
-                $product = $associatedModel['product'] ?? null;
-                $productImage = $associatedModel['product_image'] ?? null;
-
-                return [
-                    'cart_id' => $item->id, // Unique cart ID
-                    'name' => $item->name,
-                    'price' => $item->price,
-                    'quantity' => $item->quantity,
-                    'attributes' => $item->attributes, // Customizables
-                    'total' => $item->getPriceSum(),
-                    'user_id' => auth()->user()->id,
-                    'product' => $product ? [
-                        'id' => $product->id,
-                        'title' => $product->title,
-                        'description' => $product->description,
-                        'price' => $product->price,
-                    ] : null,
-                    'product_image' => $productImage ? [
-                        'id' => $productImage->id,
-                        'image' => $productImage->image,
-                    ] : null,
-                ];
-            });
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Cart retrieved successfully',
-                'cart_items' => $formattedCartItems,
-                'cart_total' => Cart::session($user)->getTotal(),
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to retrieve cart',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    public function remove()
-    {
-        $user = auth()->user()->id;
-        echo "user_id here : " . $user;
-        Cart::session($user)->clear();
-
-        $get_user = Cart::session($user)->getContent();
-        return response()->json([
-            'status' => true,
-            'cart' => $get_user,
             'message' => 'Product moved to cart successfully',
         ]);
     }

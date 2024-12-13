@@ -304,7 +304,7 @@ Route::prefix('api/v1')->group(function () {
     });
 
     Route::prefix('variations')->group(function () {
-        Route::get('/', [Api\ProductVariationController::class, 'index']);
+        Route::post('/getall', [Api\ProductVariationController::class, 'index']);
         Route::get('/{id}', [Api\ProductVariationController::class, 'show']);
         Route::post('/', [Api\ProductVariationController::class, 'store']);
         Route::post('/update/{id}', [Api\ProductVariationController::class, 'update']);
