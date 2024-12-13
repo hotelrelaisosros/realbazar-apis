@@ -638,7 +638,7 @@ class ProductController extends Controller
             'product_desc' => 'required',
             'product_single_image' => 'required',
             'product_multiple_images' => 'required|array',
-            'variations' => 'required',
+            'variations' => 'nullable',
             'tags' => 'required',
             'sub_category_id' => 'required',
             // 'brand' => 'required',
@@ -704,17 +704,17 @@ class ProductController extends Controller
                 }
 
 
-                if (!empty($request->variations)) {
-                    foreach ($request->variations as $variation) {
-                        if (is_object($variation)) $variation = $variation->toArray();
-                        $newVariation = new ProductVariation();
-                        $newVariation->product_id = $new_product->id;
-                        $newVariation->size = $variation['size'];
-                        $newVariation->stock = $variation['stock'];
-                        $newVariation->price = $variation['price'];
-                        if (!$newVariation->save()) throw new Error("Product Variations not added!");
-                    }
-                }
+                // if (!empty($request->variations)) {
+                //     foreach ($request->variations as $variation) {
+                //         if (is_object($variation)) $variation = $variation->toArray();
+                //         $newVariation = new ProductVariation();
+                //         $newVariation->product_id = $new_product->id;
+                //         $newVariation->size = $variation['size'];
+                //         $newVariation->stock = $variation['stock'];
+                //         $newVariation->price = $variation['price'];
+                //         if (!$newVariation->save()) throw new Error("Product Variations not added!");
+                //     }
+                // }
 
                 //ensure configurations for ring products
                 if ($request->sub_category_id == 1 && $new_product->id && $product_image->id) {
