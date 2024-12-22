@@ -4,6 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProductsResource;
+use App\Http\Resources\ProductVariationResource;
+use App\Http\Resources\ProductImageResource;
+
+use App\Http\Resources\ProductNonRingResource;
+
 use App\Models\AppNotification;
 use App\Models\Banner;
 use App\Models\Category;
@@ -47,6 +52,8 @@ class ProductController extends Controller
     {
         $this->file = $file;
     }
+
+
     public function get_all_ring_product_images()
     {
 
@@ -1336,6 +1343,7 @@ class ProductController extends Controller
         $historyProduct = Product::has('user')->with(['user', 'images', 'variation', 'subCategories.categories', 'reviews.users'])->whereHas('history', function ($query) {
             $query->where('user_id', auth()->user()->id);
         })->get();
+
         if (count($historyProduct)) return response()->json(['status' => true, 'Message' => 'Product found', 'Products' => ProductsResource::collection($historyProduct)], 200);
         return response()->json(['status' => false, 'Message' => 'Product not found']);
     }
@@ -1537,6 +1545,7 @@ class ProductController extends Controller
         return response()->json(['message' => 'Product enum updated successfully', 'data' => $productEnum], 200);
     }
 
+    //step1
     public function getAllRingProducts(Request $request)
     {
 
@@ -1606,5 +1615,163 @@ class ProductController extends Controller
         // }
 
         return response()->json(['message' => 'Ring products', 'data' => $query], 200);
+    }
+
+
+    // step2
+
+    public function showSpecificRingVarition(Request $request)
+    {
+        // Validate the input request
+        $valid = Validator::make($request->all(), [
+            'variant_id' => 'required|exists:product_variations,id',
+            // 'metal_type_id ' => 'required|exists:metal_type_categories,id',
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Validation errors',
+                'errors' => $valid->errors(),
+            ]);
+        }
+
+        $variation = ProductVariation::with(['product', 'product_images', 'metal_type'])
+            ->where('id', $request["variant_id"])
+            ->where('metal_type_id', $request['metal_type_id'])
+            ->first();
+
+
+
+        if (!$variation) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Variation not found',
+            ], 404);
+        }
+
+
+        //product enumerations
+
+        $product_id = $variation->product_id;
+
+
+        // if ($enum) {
+        $productEnum = ProductEnum::where('product_id', $product_id)->first();
+
+        if (!$productEnum) {
+            return;
+        }
+
+        // Map the related data models based on the IDs stored in the ProductEnum
+        $productEnum = [
+            'band_width' => $this->getRelatedModels($productEnum->band_width_ids, BandWidth::class),
+            'accent_stone_types' => $this->getRelatedModels($productEnum->accent_stone_type_ids, AccentStoneTypes::class),
+            'setting_heights' => $this->getRelatedModels($productEnum->setting_height_ids, SettingHeight::class),
+            'prong_styles' => $this->getRelatedModels($productEnum->prong_style_ids, ProngStyle::class),
+            'ring_sizes' => $this->getRelatedModels($productEnum->ring_size_ids, RingSize::class),
+            'bespoke_customizations' => $this->getRelatedModels($productEnum->bespoke_customization_ids, BespokeCustomization::class),
+            'birth_stones' => $this->getRelatedModels($productEnum->birth_stone_ids, BirthStone::class),
+        ];
+        $variation["enumeration"] = $productEnum;
+        // }
+
+        $other_variants = ProductVariation::where('product_id', $product_id)
+            ->where('id', '!=', $variation->id)
+            ->get(['id', 'metal_type_id']);
+        $variation->other_variants = $other_variants;
+
+        // Return the response
+        return response()->json([
+            'message' => 'Ring product details',
+            'data' => $variation,
+        ], 200);
+    }
+
+
+    public function getAllNonRings(Request $request)
+    {
+
+        $valid = Validator::make($request->all(), [
+            'product_id' => 'required|exists:products,id',
+            'variant_id' => 'nullable|exists:product_variations,id',
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Validation errors',
+                'errors' => $valid->errors(),
+            ]);
+        }
+
+        $product = Product::isRing($request["product_id"])->exists();
+        if ($product) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Method is only for non ring based',
+            ], 404);
+        }
+        $product  = Product::with(['variation', 'images'])->where('id', $request["product_id"])->first();
+
+        $format = new ImageHelper();
+
+
+        foreach ($product as $producta) {
+            if (!empty($producta["images"])) {
+                $producta["images"] = $format->formatProductImages($producta["images"]);
+            }
+        }
+
+
+        if (count($product["variation"]) > 1) {
+
+            $variantId = $request->has("variant_id")
+                ? $request["variant_id"]
+                : ProductVariation::where('product_id', $product["id"])->inRandomOrder()->value('id');
+
+            $variation = ProductVariation::with(['product_images', 'product'])
+                ->where('id', $variantId)
+                ->first();
+            $product_images = ProductImage::where('product_id', $variation->product_id)->where('variant_id', $variation->id)->first();
+
+            // print_r($variation->product_images);
+            $product_id = $variation->product_id;
+
+            $other_variants = ProductVariation::where('product_id', $product_id)
+                ->where('id', '!=', $variantId)
+                ->get(['id']);
+
+            // $variation->other_variants = $other_variants;
+
+
+            return response()->json([
+                'message' => 'Product with variations',
+                'data' => [
+                    'product' => new ProductNonRingResource($variation->product),
+                    'image' => $variation["product_images"]->count() > 0 ?  ProductImageResource::collection($variation["product_images"]) : [],
+
+                    'varation' => ProductVariationResource::collection(collect([$variation])),
+                    'other_vairants' => $other_variants,
+                ],
+                'is_variation' => true
+            ], 200);
+        }
+        return response()->json([
+            'message' => 'Product witout variations',
+            'data' => $product,
+            'is_variation' => false
+
+        ], 200);
+    }
+    private  function getRelatedModels($ids, $modelClass)
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        $idArray = explode(',', $ids);
+
+        return $modelClass::whereIn('id', $idArray)->get()->toArray();
     }
 }

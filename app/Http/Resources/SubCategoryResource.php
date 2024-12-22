@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\ImageHelper;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class SubCategoryResource extends JsonResource
@@ -18,8 +19,13 @@ class SubCategoryResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'url' => $this->url,
-            'image' => $this->image,
-            'category' => $this->categories,
+            'image' => ImageHelper::formatImageUrl($this->image),
+            'category' => $this->categories->first() ? [
+                'id' => $this->categories->first()->id,
+                'name' => $this->categories->first()->name,
+                'url' => $this->categories->first()->url,
+                'image' =>  ImageHelper::formatImageUrl($this->categories->first()->image),
+            ] : null,
         ];
     }
 }

@@ -29,6 +29,12 @@ birthtstones
 gem stone
 
 
+//tables taking images
+
+gem stones 
+gem shape 
+
+
 //
 
 git add .

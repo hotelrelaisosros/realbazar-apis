@@ -32,6 +32,20 @@ class ImageHelper
             return $image;
         });
     }
+    public static function formatImageCollection($imageCollection)
+    {
+        if (!empty($imageCollection)) {
+            // Decode the JSON-encoded image_collection
+            $decodedCollection = json_decode($imageCollection, true);
+
+            if (is_array($decodedCollection)) {
+                // Format each image URL in the collection
+                return array_map([self::class, 'formatImageUrl'], $decodedCollection);
+            }
+        }
+
+        return [];
+    }
 
 
     public function format_product($all_images)

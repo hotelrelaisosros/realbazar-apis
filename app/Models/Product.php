@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use App\Exceptions\ProductStatusException;
 
 class Product extends Model
 {
@@ -21,6 +22,7 @@ class Product extends Model
     {
         return $this->hasMany(ProductImage::class, 'product_id', 'id');
     }
+
     public function variation()
     {
         return $this->hasMany(ProductVariation::class, 'product_id', 'id');
@@ -51,6 +53,10 @@ class Product extends Model
     {
         return $query->where('sub_category_id', 1)->where('id', $id);
     }
+
+
+
+
     public function scopeIsAllRing(Builder $query)
     {
         return $query->where('sub_category_id', 1);
@@ -63,35 +69,10 @@ class Product extends Model
                 ->where('status', 'approved')
                 ->where('is_delete', false)
                 ->where('is_active', true);
+            // if ($builder->count() === 0) {
+            //     throw new ProductStatusException("Product is not active or product is deleted.");
+            // }
         });
-        // if (auth()->check()) {
-        //     $user = auth()->user()->load('role');
-        //     if ($user->role->name == 'user') {
-        //         static::addGlobalScope('active', function ($builder) {
-        //             $builder->orderBy('id', 'DESC')->where('status', 'approved')
-        //                 ->where('is_delete', false)
-        //                 ->where('is_active', true)
-        //                 ->whereRelation('user', 'is_block', false)
-        //                 ->whereRelation('user', 'is_active', true);
-        //         });
-        //     } elseif ($user->role->name == 'admin') {
-        //         static::addGlobalScope('active', function ($builder) {
-        //             $builder->orderBy('id', 'DESC')->whereRelation('user', 'is_block', false);
-        //         });
-        //     } else {
-        //         static::addGlobalScope('active', function ($builder) {
-        //             $builder->orderBy('id', 'DESC')->whereRelation('user', 'is_block', false)->where('is_delete', false);
-        //         });
-        //     }
-        // } else {
-        //     static::addGlobalScope('active', function ($builder) {
-        //         $builder->orderBy('id', 'DESC')->where('status', 'approved')
-        //             ->where('is_delete', false)
-        //             ->where('is_active', true)
-        //             ->whereRelation('user', 'is_block', false)
-        //             ->whereRelation('user', 'is_active', true);
-        //     });
-        // }
     }
     public function product_enum()
     {

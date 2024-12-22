@@ -4,10 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SubCategoryResource;
+use App\Http\Resources\CategoryResource;
+
 use App\Models\Category;
+use App\Models\Product;
+
 use App\Models\SubCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use App\Helpers\ImageHelper;
 
 class SubCategoryController extends Controller
 {
@@ -18,11 +23,40 @@ class SubCategoryController extends Controller
         return response()->json(['status' => false, 'Message' => 'SubCategory not found']);
     }
 
+    public function showCategoryFront()
+    {
+        $cat = Category::has('subCategory')->get();
+
+        if (count($cat)) return response()->json(['status' => true, 'Message' => 'SubCategory found', 'SubCategory' => CategoryResource::collection($cat)], 200);
+
+        return response()->json(['status' => false, 'Message' => 'SubCategory not found']);
+    }
+
+    public function showSubCategoryFront($id)
+    {
+        if (empty($id)) return response()->json(['status' => false, 'Message' => 'Id not found']);
+
+        $sub_cat = Product::has('images')->where('sub_category_id', $id)->get();
+
+        $format = new ImageHelper();
+
+        foreach ($sub_cat as $product) {
+            if (!empty($product["images"])) {
+                $product["images"] = $format->formatProductImages($product["images"]);
+            }
+        }
+
+        if (count($sub_cat)) return response()->json(['status' => true, 'Message' => 'SubCategory found', 'SubCategory' => $sub_cat], 200);
+        return response()->json(['status' => false, 'Message' => 'SubCategory not found']);
+    }
     public function fetchSubCategory($id)
     {
         if (empty($id)) return response()->json(['status' => false, 'Message' => 'Id not found']);
         $subcategory = SubCategory::has('categories')->with('categories')->where('category_id', $id)->get();
-        if (count($subcategory)) return response()->json(['status' => true, 'Message' => 'SubCategory found', 'SubCategory' => SubCategoryResource::collection($subcategory)], 200);
+
+
+        $new_sub = SubCategoryResource::collection($subcategory);
+        if (count($new_sub)) return response()->json(['status' => true, 'Message' => 'SubCategory found', 'SubCategory' => $new_sub], 200);
         return response()->json(['status' => false, 'Message' => 'SubCategory not found']);
     }
 

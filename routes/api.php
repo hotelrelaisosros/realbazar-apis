@@ -284,7 +284,13 @@ Route::prefix('api/v1')->group(function () {
 
 
         Route::prefix('front')->group(function () {
-            Route::post('/', [Api\ProductController::class, 'getAllRingProducts']);
+            Route::post('/step1', [Api\ProductController::class, 'getAllRingProducts']);
+            Route::post('/step2', [Api\ProductController::class, 'showSpecificRingVarition']);
+        });
+
+        Route::prefix('simple')->group(function () {
+            Route::post('/get_product', [Api\ProductController::class, 'getAllNonRings']);
+            Route::post('/step2', [Api\ProductController::class, 'showSpecificRingVarition']);
         });
     });
 
@@ -310,6 +316,14 @@ Route::prefix('api/v1')->group(function () {
         Route::post('/update/{id}', [Api\ProductVariationController::class, 'update']);
         Route::delete('/{id}', [Api\ProductVariationController::class, 'destroy']);
         Route::post('/connect-image', [Api\ProductVariationController::class, 'connectProductImage']);
+    });
+
+    Route::prefix('subcategory')->group(function () {
+        Route::get('/show/{id}', [Api\SubCategoryController::class, 'showSubCategoryFront']);
+    });
+
+    Route::prefix('category')->group(function () {
+        Route::get('/show', [Api\SubCategoryController::class, 'showCategoryFront']);
     });
 });
 // Route::get('/', function () {
@@ -345,6 +359,8 @@ Route::get('subcategory', [Api\SubCategoryController::class, 'show']);
 Route::get('show/subcategory/{id}', [Api\SubCategoryController::class, 'fetchSubCategory']);
 Route::post('search/category', [Api\CategoryController::class, 'searchCategory']);
 Route::post('subscribe', [Api\SettingController::class, 'subscribe']);
+
+
 
 //banner
 Route::get('/banners/{section}', [Api\BannerController::class, 'banners']);
