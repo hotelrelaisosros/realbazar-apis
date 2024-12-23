@@ -17,7 +17,10 @@ use Illuminate\Support\Facades\File;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
-//auth
+
+// Route::group(['middleware' => 'cors'], function () {
+
+
 Route::post('/signup', [Api\AuthController::class, 'signup']);
 Route::post('/signup/valid/page1', [Api\AuthController::class, 'signupValidPage1']);
 Route::post('/signup/valid/page2', [Api\AuthController::class, 'signupValidPage2']);
@@ -441,6 +444,8 @@ Route::group(['middleware' => ['auth:api']], function () {
 
 Route::get('/serve-file/{filename}', [Api\FileController::class, 'serveFile'])->name('serve-file');
 
-//ring_customizaiton_page1:
+    //ring_customizaiton_page1:
 
-// step1 crud
+    // step1 crud
+    // Your routes here
+// });//auth

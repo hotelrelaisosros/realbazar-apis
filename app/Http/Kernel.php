@@ -16,6 +16,8 @@ class Kernel extends HttpKernel
      */
     protected $middleware = [
         // \App\Http\Middleware\TrustHosts::class,
+        // \App\Http\Middleware\CorsMiddleware::class,
+
         HttpLogger::class,
         \App\Http\Middleware\TrustProxies::class,
         // \Fruitcake\Cors\HandleCors::class,
@@ -59,6 +61,9 @@ class Kernel extends HttpKernel
      * @var array<string, class-string|string>
      */
     protected $routeMiddleware = [
+        // 'cors' => \App\Http\Middleware\CorsMiddleware::class,
+
+
         'auth' => \App\Http\Middleware\Authenticate::class,
         'verified' => \App\Http\Middleware\EmailIsVerified::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
