@@ -111,8 +111,6 @@ class GemStoneColorController extends Controller
         if ($request->hasFile('image')) {
             // Check if the current image is a remote URL
             if (filter_var($GemStoneColor->image, FILTER_VALIDATE_URL)) {
-                // If it's a remote URL, replace it with the new image URL (from the uploaded file)
-                // Store the new image in 'step1/GemStoneColors' directory on the public disk
                 $imagePath = $request->file('image')->store('step4/GemStoneColors', 'public');
             } else {
                 // If it's a local image, delete the old image (if it exists)

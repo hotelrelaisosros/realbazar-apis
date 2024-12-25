@@ -115,8 +115,8 @@ class BespokeCustomizationController extends Controller
         echo "hi";
 
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'name' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
         if ($validator->fails()) {
             return response()->json([

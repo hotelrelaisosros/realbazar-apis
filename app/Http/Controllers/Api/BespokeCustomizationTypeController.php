@@ -86,7 +86,7 @@ class BespokeCustomizationTypeController extends Controller
             ], 404);
         }
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string',
+            'name' => 'nullable|string',
             'price' => 'nullable|numeric',
             'type' => 'nullable|integer',
         ]);

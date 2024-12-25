@@ -78,8 +78,8 @@ class MetalTypeCategoryController extends Controller
     {
         $valid = Validator::make($request->all(), [
             'type' => 'nullable|in:P,YG,RG,WG,YP,RP',
-            'title' => 'required|string|max:255',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'title' => 'nullable|string|max:255',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
         if ($valid->fails()) {
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);

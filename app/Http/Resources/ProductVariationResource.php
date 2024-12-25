@@ -23,6 +23,8 @@ class ProductVariationResource extends JsonResource
             "price" => $this->price,
             "metal_type_id" => $this->metal_type_id,
             "gem_shape_id" => $this->gem_shape_id,
+            "total_price" => ($this->product ? $this->product->price : 0) + $this->price,
+            "total_discounted_price" => ($this->product ? $this->product->price : 0) + $this->price - ($this->product ? $this->product->discount_price : 0),
             // 'product_images' => ProductImageResource::collection($this->whenLoaded('product_images')),
 
         ];

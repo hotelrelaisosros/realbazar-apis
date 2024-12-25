@@ -77,18 +77,25 @@ class GemStoneController extends Controller
         }
 
         $validatedData = $request->validate([
-            'type' => 'required|in:M,LGD',
-            'carat' => 'required|numeric',
-            'shape' => 'required|string',
-            'dimension' => 'required|string',
-            'faceting' => 'required|string',
-            'price' => 'required|numeric',
-            'gemstone_color_id' => 'required|integer',
-            'color' => 'required|string',
-            'clarity' => 'required|string',
+            'type' => 'nullable|in:M,LGD',
+            'carat' => 'nullable|numeric',
+            'shape' => 'nullable|string',
+            'dimension' => 'nullable|string',
+            'faceting' => 'nullable|string',
+            'price' => 'nullable|numeric',
+            'gemstone_color_id' => 'nullable|integer',
+            'color' => 'nullable|string',
+            'clarity' => 'nullable|string',
         ]);
 
-        $gemstone->update($validatedData);
+        // Update only if new data is provided
+        foreach ($validatedData as $key => $value) {
+            if ($value !== null) {
+                $gemstone->$key = $value;
+            }
+        }
+
+        $gemstone->save();
 
         return response()->json([
             'status' => true,

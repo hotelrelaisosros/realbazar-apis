@@ -939,7 +939,8 @@ class ProductController extends Controller
             'product_single_image' => 'nullable|image',
             'product_multiple_images' => 'nullable|array',
             'product_small_image' => 'nullable',
-            'name' => "nullable|string"
+            'name' => "nullable|string",
+            'variant_id' => 'nullable|exists:product_variations,id',
         ]);
 
         if ($valid->fails()) {
@@ -951,7 +952,15 @@ class ProductController extends Controller
             $this->check_product_exists($valid['product_id']);
 
             $isRing =  Product::isRing($valid['product_id'])->exists();
+            $checkVariantExists = ProductImage::where('variant_id', $request['variant_id'])->first();
+            if ($checkVariantExists) {
+                return response()->json(['status' => false, 'Message' => 'Image already exists for this variant'], 404);
+            }
 
+            // $checkVariantProduct = ProductVariation::find($request['variant_id']);
+            // if ($checkVariantProduct->product_id !== $request['product_id']) {
+            //     return response()->json(['status' => false, 'Message' => 'You are providing the wrong product ID for the variation'], 404);
+            // }
             // if (!$isRing) {
             //     $checkImage = ProductImage::where("product_id", $valid["product_id"])->first();
             //     if ($checkImage) {
@@ -960,6 +969,8 @@ class ProductController extends Controller
             // }
             $product_image = new ProductImage();
             $product_image->product_id = $request->product_id;
+
+            $product_image->variant_id = $request->variant_id ?? null;
 
             if ($request->hasFile('product_single_image')) {
                 // Ensure the product directory exists
@@ -1008,20 +1019,20 @@ class ProductController extends Controller
                 throw new \Exception("Product image not saved!");
             }
 
-            if ($isRing) {
-                $getProductEnum = ProductEnum::where("product_id", $request->product_id)->first(); // Fetch the record
+            // if ($isRing) {
+            //     $getProductEnum = ProductEnum::where("product_id", $request->product_id)->first(); // Fetch the record
 
-                if ($getProductEnum) {
-                    $existingMetalTypes = json_decode($getProductEnum->metal_types, true) ?? [];
-                    $newValue =  $product_image->id;
-                    if (!in_array($newValue, $existingMetalTypes)) {
-                        $existingMetalTypes[] = $newValue;
-                    }
+            //     if ($getProductEnum) {
+            //         $existingMetalTypes = json_decode($getProductEnum->metal_types, true) ?? [];
+            //         $newValue =  $product_image->id;
+            //         if (!in_array($newValue, $existingMetalTypes)) {
+            //             $existingMetalTypes[] = $newValue;
+            //         }
 
-                    $getProductEnum->metal_types = json_encode($existingMetalTypes);
-                    $getProductEnum->save();
-                }
-            }
+            //         $getProductEnum->metal_types = json_encode($existingMetalTypes);
+            //         $getProductEnum->save();
+            //     }
+            // }
             $image = ProductImage::with('product')->where("id", $product_image->id)->first();
 
             return response()->json(['status' => true, 'Message' => 'Product Image(s) Added Successfully!', "image" => $image], 200);
@@ -1570,32 +1581,46 @@ class ProductController extends Controller
             $query = $query->where('gem_shape_id', $request->gem_shapes);
         }
 
-        $query = $query->get();
+        $productVariations = $query->get();
 
+        $data = $productVariations->map(function ($variation) {
+            return [
+                'product' => new ProductNonRingResource($variation->product),
+                'images' => $variation->product_images->count() > 0
+                    ? ProductImageResource::collection($variation->product_images)
+                    : [],
+                'variation' => new ProductVariationResource($variation),
+            ];
+        });
+
+        return response()->json([
+            'message' => 'Ring products',
+            'data' => $data,
+        ], 200);
         // // modify images
-        $format = new ImageHelper();
-        foreach ($query as $product) {
-            if (!empty($product["images"])) {
-                $product["images"] = $format->formatProductImages($product["images"]);
-            }
-        }
+        // $format = new ImageHelper();
+        // foreach ($query as $product) {
+        //     if (!empty($product["images"])) {
+        //         $product["images"] = $format->formatProductImages($product["images"]);
+        //     }
+        // }
         // modify prices
 
 
-        foreach ($query as $key => $title) {
-            if (isset($title['title']) && isset($title['product']['title'])) {
-                $query[$key]['product_title'] = $title['product']['title'] . " - " . $title['title'];
-            }
-        }
+        // foreach ($query as $key => $title) {
+        //     if (isset($title['title']) && isset($title['product']['title'])) {
+        //         $product_title = $query[$key]['product_title'] = $title['product']['title'] . " - " . $title['title'];
+        //     }
+        // }
 
-        foreach ($query as $key => $title) {
-            if (isset($title['price']) && isset($title['product']['price'])) {
-                $query[$key]['total_price'] = $title['product']['price'] + $title['price'] - $title['product']['discount_price'];
-            }
-            if (isset($title['product']['discount_price'])) {
-                $query[$key]['total_discount'] = $title['product']['discount_price'];
-            }
-        }
+        // foreach ($query as $key => $title) {
+        //     if (isset($title['price']) && isset($title['product']['price'])) {
+        //         $total_price =  $query[$key]['total_price'] = $title['product']['price'] + $title['price'] - $title['product']['discount_price'];
+        //     }
+        //     if (isset($title['product']['discount_price'])) {
+        //         $total_discount = $query[$key]['total_discount'] = $title['product']['discount_price'];
+        //     }
+        // }
 
 
 
@@ -1614,7 +1639,7 @@ class ProductController extends Controller
         //     $product["images"] = $format->formatProductImages($product["images"]);
         // }
 
-        return response()->json(['message' => 'Ring products', 'data' => $query], 200);
+
     }
 
 
@@ -1683,8 +1708,16 @@ class ProductController extends Controller
 
         // Return the response
         return response()->json([
-            'message' => 'Ring product details',
-            'data' => $variation,
+            'message' => 'Product with variations',
+            'data' => [
+                'product' => new ProductNonRingResource($variation->product),
+                'image' => $variation["product_images"]->count() > 0 ?  ProductImageResource::collection($variation["product_images"]) : [],
+
+                'varation' => ProductVariationResource::collection(collect([$variation])),
+                'enumerations' => $variation["enumeration"],
+                'other_vairants' => $other_variants,
+            ],
+            'is_variation' => true
         ], 200);
     }
 
@@ -1733,7 +1766,6 @@ class ProductController extends Controller
             $variation = ProductVariation::with(['product_images', 'product'])
                 ->where('id', $variantId)
                 ->first();
-            $product_images = ProductImage::where('product_id', $variation->product_id)->where('variant_id', $variation->id)->first();
 
             // print_r($variation->product_images);
             $product_id = $variation->product_id;
