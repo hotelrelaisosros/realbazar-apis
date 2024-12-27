@@ -9,6 +9,7 @@ class GemStone extends Model
 {
     use HasFactory;
 
+    protected $table = 'gem_stones';
     protected $fillable = [
         'type',
         'carat',

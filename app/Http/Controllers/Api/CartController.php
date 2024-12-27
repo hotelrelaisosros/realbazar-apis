@@ -15,6 +15,12 @@ use App\Models\CartItem;
 use App\Jobs\RemoveCartItem;
 use App\Models\ProductImage;
 use App\Models\ProductVariation;
+use App\Models\BespokeCustomizationType;
+use App\Models\GemStone;
+use App\Models\BirthStone;
+
+
+
 
 
 class CartController extends Controller
@@ -30,9 +36,14 @@ class CartController extends Controller
     public function addToCart(Request $request)
     {
         $valid = Validator::make($request->all(), [
+
             'product_id' => 'required|numeric|exists:products,id',
             'product_image_id' => 'nullable|numeric|exists:product_images,id',
-            'variation_id' => 'nullable|numeric|exists:product_variations,id'
+            'variation_id' => 'nullable|numeric|exists:product_variations,id',
+            'bespoke_type' => 'nullable|numeric|exists:bespoke_customization_types,id',
+            'birth_stone' => 'nullable|numeric|exists:birth_stones,id',
+            'gem_stone' => 'nullable|numeric|exists:gem_stones,id',
+
         ]);
 
         if ($valid->fails()) {
@@ -51,7 +62,7 @@ class CartController extends Controller
 
         $variation = null;
         $productImage = null;
-
+        $price_counter = 0;
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
             if ($productImage) {
@@ -65,6 +76,19 @@ class CartController extends Controller
                     ->first();
             }
         }
+
+
+        if (!empty($validated["bespoke_type"])) {
+            $bsp_type = BespokeCustomizationType::find($validated["bespoke_type"]);
+        }
+        if (!empty($request["birth_stone"])) {
+            $birth_stone = BirthStone::find($request["birth_stone"]);
+        }
+        if (!empty($request["gem_stone"])) {
+            $gem_stone = GemStone::find($request["gem_stone"]);
+        }
+
+
 
 
         if (!$product) {
@@ -90,17 +114,29 @@ class CartController extends Controller
             $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
 
             // Create the cart object
+            if ($isRing) {
+                $models =  [
+                    'product' => $product,
+                    'product_image' => $productImage,
+                    'variation' => $variation,
+                    'bespoke_type' => $bsp_type ?? null,
+                    'birth_stone' => $birth_stone ?? null,
+                    'gem_stone' => $gem_stone ?? null,
+                ];
+            } else {
+                $models = [
+                    'product' => $product,
+                    'product_image' => $productImage,
+                    'variation' => $variation,
+                ];
+            }
             $cartObj = [
                 'id' => $cartItemId, // Use unique id for rings, just product id for non-rings
                 'name' => $product->title,
                 'price' => $product->price,
                 'quantity' => 1,
                 'attributes' => $customizables, // Only rings will have attributes
-                'associatedModel' => [
-                    'product' => $product,
-                    'product_image' => $productImage,
-                    'variation' => $variation,
-                ],
+                'associatedModel' => $models,
             ];
 
             // Check if the product is already in the cart
@@ -134,7 +170,7 @@ class CartController extends Controller
         $validated = Validator::make($request->all(), [
             'cart_id' => 'required|string', // Unique cart ID for identifying the item
             'fields_to_nullify' => 'required|array', // Array of fields to be nullified
-            'fields_to_nullify.*' => 'in:bespoke_customization,bespoke_customization_types,birth_stone,gem_stone',
+            'fields_to_nullify.*' => 'in:bespoke_type,birth_stone,gem_stone',
         ]);
 
         if ($validated->fails()) {
@@ -268,6 +304,9 @@ class CartController extends Controller
 
                 $productImage = $associatedModel['product_image'] ?? null;
 
+                $bespoke_type = $associatedModel['bespoke_type'] ?? null;
+                $birth_stone = $associatedModel['birth_stone'] ?? null;
+                $gem_stone = $associatedModel['gem_stone'] ?? null;
                 return [
                     'cart_id' => $item->id, // Unique cart ID
                     'name' => $item->name,
@@ -289,6 +328,21 @@ class CartController extends Controller
                     'variation' => $variations ? [
                         'id' => $variations->id,
                         'price' => $variations->price,
+                    ] : null,
+                    'bespoke_type' => $bespoke_type ? [
+                        'id' => $bespoke_type->id,
+                        'name' => $bespoke_type->name,
+                        'price' => $bespoke_type->price
+                    ] : null,
+                    'birth_stone' => $birth_stone ? [
+                        'id' => $birth_stone->id,
+                        'name' => $birth_stone->name,
+                        'price' => $birth_stone->price
+                    ] : null,
+                    'gem_stone' => $gem_stone ? [
+                        'id' => $gem_stone->id,
+                        'name' => $gem_stone->type,
+                        'price' => $gem_stone->price
                     ] : null,
                 ];
             });

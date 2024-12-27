@@ -10,5 +10,5 @@ class BirthStone extends Model
     use HasFactory;
     protected $guarded = [];
 
-    protected $fillable = ["name", "image"];
+    protected $fillable = ["name", "price", "image"];
 }

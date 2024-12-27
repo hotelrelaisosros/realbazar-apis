@@ -383,6 +383,7 @@ class AuthController extends Controller
 
     public function resendVerificationLink(Request $request)
     {
+        $send_code = $request["send_code_only"];
 
         $rules['emailphone'] = 'required|exists:users,email';
         $attributes['emailphone'] = 'Email';
@@ -408,16 +409,27 @@ class AuthController extends Controller
                     'message' => 'Email is already verified.',
                 ]);
             }
+            $user->token = rand(100000, 999999);
+            $email = $request->emailphone;
+            $token = $user->token;
 
+            //
+
+            $user->save();
             // Generate a new signed URL
-            $link = URL::temporarySignedRoute(
-                'verifications.verify',
-                now()->addMinutes(30),
-                ['id' => $user->id, 'hash' => sha1($user->email)]
-            );
+            if (empty($request["send_code_only"])) {
+                $link = URL::temporarySignedRoute(
+                    'verifications.verify',
+                    now()->addMinutes(30),
+                    ['id' => $user->id, 'hash' => sha1($user->email)]
+                );
+            } else {
+                $link = "";
+            }
+
 
             // Send the email
-            Mail::send('admin.mail.appRegister', compact('link'), function ($message) use ($user) {
+            Mail::send('admin.mail.appRegister', compact('email', 'token', 'link'), function ($message) use ($user) {
                 $message->to($user->email);
                 $message->subject('Resend Verification Link');
             });

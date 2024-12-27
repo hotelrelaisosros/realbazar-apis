@@ -9,7 +9,9 @@ use App\Models\Product;
 use App\Models\ProductImage;
 use Illuminate\Support\Facades\Log;
 use App\Models\ProductVariation;
-
+use App\Models\BespokeCustomizationType;
+use App\Models\GemStone;
+use App\Models\BirthStone;
 use Illuminate\Support\Facades\Validator;
 use Exception;
 
@@ -50,9 +52,14 @@ class WishListController extends Controller
     public function addToWishlist(Request $request)
     {
         $valid = Validator::make($request->all(), [
+
             'product_id' => 'required|numeric|exists:products,id',
             'product_image_id' => 'nullable|numeric|exists:product_images,id',
-            'variation_id' => 'nullable|numeric|exists:product_variations,id'
+            'variation_id' => 'nullable|numeric|exists:product_variations,id',
+            'bespoke_type' => 'nullable|numeric|exists:bespoke_customization_types,id',
+            'birth_stone' => 'nullable|numeric|exists:birth_stones,id',
+            // 'gem_stone' => 'nullable|numeric|exists:gem_stones,id',
+
         ]);
 
         if ($valid->fails()) {
@@ -71,7 +78,7 @@ class WishListController extends Controller
 
         $variation = null;
         $productImage = null;
-
+        $price_counter = 0;
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
             if ($productImage) {
@@ -85,6 +92,19 @@ class WishListController extends Controller
                     ->first();
             }
         }
+
+
+        if (!empty($validated["bespoke_type"])) {
+            $bsp_type = BespokeCustomizationType::find($validated["bespoke_type"]);
+        }
+        if (!empty($request["birth_stone"])) {
+            $birth_stone = BirthStone::find($request["birth_stone"]);
+        }
+        if (!empty($request["gem_stone"])) {
+            $gem_stone = GemStone::find($request["gem_stone"]);
+        }
+
+
         if (!$product) {
             return response()->json(['error' => 'Product not found'], 404);
         }
@@ -106,6 +126,25 @@ class WishListController extends Controller
             ? $product->id . '-' . strtoupper(substr(uniqid(), -6))
             : $product->id;
 
+
+        // Create the cart object
+        if ($isRing) {
+            $models =  [
+                'product' => $product,
+                'product_image' => $productImage,
+                'variation' => $variation,
+                'bespoke_type' => $bsp_type ?? null,
+                'birth_stone' => $birth_stone ?? null,
+                'gem_stone' => $gem_stone ?? null,
+            ];
+        } else {
+            $models = [
+                'product' => $product,
+                'product_image' => $productImage,
+                'variation' => $variation,
+            ];
+        }
+
         // Check if the product is already in the wishlist
         $existingWishlistItem = Cart::session("wishlist_$user")->getContent()->get($wishlistItemId);
 
@@ -124,12 +163,7 @@ class WishListController extends Controller
             'quantity' => 1,
             'attributes' => $customizables,
             //  'user_id' => auth()->user()->id,
-            'associatedModel' => [
-                'product' => $product,
-                'product_image' => $productImage,
-                'variation' => $variation,
-
-            ],
+            'associatedModel' => $models,
         ]);
 
         Log::info("lola" . Cart::session("wishlist_$user")->getContent());
