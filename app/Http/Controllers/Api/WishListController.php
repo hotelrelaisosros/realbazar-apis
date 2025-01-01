@@ -58,7 +58,7 @@ class WishListController extends Controller
             'variation_id' => 'nullable|numeric|exists:product_variations,id',
             'bespoke_type' => 'nullable|numeric|exists:bespoke_customization_types,id',
             'birth_stone' => 'nullable|numeric|exists:birth_stones,id',
-            // 'gem_stone' => 'nullable|numeric|exists:gem_stones,id',
+            'gem_stone' => 'nullable|numeric|exists:gem_stones,id',
 
         ]);
 
@@ -78,7 +78,7 @@ class WishListController extends Controller
 
         $variation = null;
         $productImage = null;
-        $price_counter = 0;
+        $price_counter = $product->price - $product->discount_price;
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
             if ($productImage) {
@@ -91,23 +91,27 @@ class WishListController extends Controller
                     ->where('variant_id', $variation->id)
                     ->first();
             }
+            $price_counter +=  $variation->price ?? 0;
         }
 
 
         if (!empty($validated["bespoke_type"])) {
             $bsp_type = BespokeCustomizationType::find($validated["bespoke_type"]);
+            $price_counter +=  $bsp_type->price ?? 0;
         }
         if (!empty($request["birth_stone"])) {
             $birth_stone = BirthStone::find($request["birth_stone"]);
+            $price_counter +=  $birth_stone->price ?? 0;
         }
         if (!empty($request["gem_stone"])) {
             $gem_stone = GemStone::find($request["gem_stone"]);
+            $price_counter +=  $gem_stone->price ?? 0;
         }
-
 
         if (!$product) {
             return response()->json(['error' => 'Product not found'], 404);
         }
+
 
         $user = auth()->user()->id;
 
@@ -159,7 +163,7 @@ class WishListController extends Controller
         Cart::session("wishlist_$user")->add([
             'id' => $wishlistItemId,
             'name' => $product->title,
-            'price' => $product->price,
+            'price' => $price_counter,
             'quantity' => 1,
             'attributes' => $customizables,
             //  'user_id' => auth()->user()->id,
@@ -212,6 +216,7 @@ class WishListController extends Controller
                         'title' => $product->title,
                         'description' => $product->description,
                         'price' => $product->price,
+                        'discount' => $product->discount->price,
                     ] : null,
                     'product_image' => $productImage ? [
                         'id' => $productImage->id,

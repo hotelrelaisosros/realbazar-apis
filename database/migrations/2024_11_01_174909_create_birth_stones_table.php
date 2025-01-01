@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::create('birth_stones', function (Blueprint $table) {
             $table->id();
             $table->string("name");
-            $table->string('price')->default(100);
+            $table->float('price')->default(100);
             $table->string("description")->nullable();
 
             $table->string("image");

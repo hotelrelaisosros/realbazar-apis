@@ -62,7 +62,7 @@ class CartController extends Controller
 
         $variation = null;
         $productImage = null;
-        $price_counter = 0;
+        $price_counter = $product->price - $product->discount_price;
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
             if ($productImage) {
@@ -75,35 +75,32 @@ class CartController extends Controller
                     ->where('variant_id', $variation->id)
                     ->first();
             }
+            $price_counter +=  $variation->price ?? 0;
         }
 
 
         if (!empty($validated["bespoke_type"])) {
             $bsp_type = BespokeCustomizationType::find($validated["bespoke_type"]);
+            $price_counter +=  $bsp_type->price ?? 0;
         }
         if (!empty($request["birth_stone"])) {
             $birth_stone = BirthStone::find($request["birth_stone"]);
+            $price_counter +=  $birth_stone->price ?? 0;
         }
         if (!empty($request["gem_stone"])) {
             $gem_stone = GemStone::find($request["gem_stone"]);
+            $price_counter +=  $gem_stone->price ?? 0;
         }
-
-
-
 
         if (!$product) {
             return response()->json(['error' => 'Product not found'], 404);
         }
 
-
         $user = auth()->user()->id;
-
         // Check if the product is a ring
         $isRing =  Product::isRing($validated['product_id'])->exists();
 
-
         $customizables = [];
-
 
         if ($isRing) {
             $customizables = $this->getCustomizablesFromRequest($request);
@@ -133,7 +130,7 @@ class CartController extends Controller
             $cartObj = [
                 'id' => $cartItemId, // Use unique id for rings, just product id for non-rings
                 'name' => $product->title,
-                'price' => $product->price,
+                'price' => $price_counter,
                 'quantity' => 1,
                 'attributes' => $customizables, // Only rings will have attributes
                 'associatedModel' => $models,
@@ -144,7 +141,7 @@ class CartController extends Controller
 
             // Adding item to cart
             Cart::session($user)->add($cartObj);
-            Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
+            // Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
 
             // Create a cart item record in the database
             // $cartItem = CartItem::create([
@@ -168,8 +165,8 @@ class CartController extends Controller
     public function updateCartCustomization(Request $request)
     {
         $validated = Validator::make($request->all(), [
-            'cart_id' => 'required|string', // Unique cart ID for identifying the item
-            'fields_to_nullify' => 'required|array', // Array of fields to be nullified
+            'cart_id' => 'required|string',
+            'fields_to_nullify' => 'required|array',
             'fields_to_nullify.*' => 'in:bespoke_type,birth_stone,gem_stone',
         ]);
 
@@ -189,7 +186,6 @@ class CartController extends Controller
         $cartId = $request->input('cart_id');
         $fieldsToNullify = $request->input('fields_to_nullify');
 
-
         // Retrieve the cart item
         $cartItem = Cart::session($userID)->get($cartId);
 
@@ -197,29 +193,49 @@ class CartController extends Controller
             return response()->json(['success' => false, 'message' => 'Cart item not found'], 404);
         }
 
-        // Update specified fields to null in attributes
         $updatedAttributes = $cartItem->attributes;
+        $associatedModel = $cartItem->associatedModel;
+
+        // $updatedTotal = $cartItem->total;
 
         foreach ($fieldsToNullify as $field) {
-            if ($updatedAttributes->has($field)) { // Use `has` instead of `array_key_exists`
-                $updatedAttributes[$field] = null; // Set the value to null
+            // Nullify attributes if they exist
+
+            if ($updatedAttributes && $updatedAttributes->has($field)) {
+                $updatedAttributes[$field] = null;
+            }
+            // Handle associated models
+            if ($associatedModel && array_key_exists($field, $associatedModel)) {
+                if (isset($associatedModel[$field]['price'])) {
+                    // Optionally adjust the total price if needed
+                    $updatedTotal -= $associatedModel[$field]['price'];
+                }
+                unset($associatedModel[$field]); // Remove the field from the associated model
             }
         }
 
-        // Update the cart item with the modified attributes
+        // Safeguard against negative totals
+        // $updatedTotal = max(0, $updatedTotal);
+
+        // Update the cart item
         Cart::session($userID)->update($cartId, [
-            'attributes' => $updatedAttributes
+            'attributes' => $updatedAttributes,
+            'price' => $cartItem->price,
+            'quantity' => $cartItem->quantity,
+            'associatedModel' => $associatedModel, // Update the associated model
+
+            // 'total' => $updatedTotal,
         ]);
 
-        // Fetch the updated cart item
-        $updatedCartItem = Cart::session($userID)->get($cartId);
 
         return response()->json([
             'success' => true,
-            'message' => 'Customizations updated successfully',
-            'cart_item' => $updatedCartItem
+            'message' => 'Cart customization updated successfully!',
+            'cart_item' => $cartItem,
+            // 'updated_total' => $updatedTotal
         ]);
     }
+
 
     private function getCustomizablesFromRequest(Request $request): array
     {
@@ -320,6 +336,7 @@ class CartController extends Controller
                         'title' => $product->title,
                         'description' => $product->description,
                         'price' => $product->price,
+                        'discount' => $product->discount_price,
                     ] : null,
                     'product_image' => $productImage ? [
                         'id' => $productImage->id,

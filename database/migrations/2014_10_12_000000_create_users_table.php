@@ -37,7 +37,7 @@ return new class extends Migration
             $table->string('given_name')->nullable();
             $table->mediumText('image')->nullable();
             $table->mediumText('bill_image')->nullable();
-            $table->mediumText('token')->nullable();
+            $table->unsignedInteger('token')->nullable();
             $table->mediumText('device_token')->nullable();
             $table->boolean('is_active')->default(false);
             $table->boolean('is_block')->default(false);

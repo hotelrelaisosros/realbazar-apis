@@ -38,6 +38,7 @@ class BirthStoneController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'price' => 'required|numeric',
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
@@ -60,6 +61,7 @@ class BirthStoneController extends Controller
         $BirthStone = BirthStone::create([
             'name' => $request->name,
             'image' => $imagePath,
+            'price' => $request->price
         ]);
 
         return response()->json([
@@ -106,6 +108,7 @@ class BirthStoneController extends Controller
         $request->validate([
             'name' => 'nullable|string|max:255',  // 'nullable' in case name is not provided
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',  // Allow null for image if it's not uploaded
+            'price' => 'nullable|numeric',
         ]);
 
         // If a new image is uploaded, handle the image update
@@ -131,6 +134,7 @@ class BirthStoneController extends Controller
         // Update name only if provided in the request
         $BirthStone->name = $request->name ?? $BirthStone->name;
 
+        $BirthStone->price = $request->price ?? $BirthStone->price;
         // Save the changes to the database
         $BirthStone->save();
 

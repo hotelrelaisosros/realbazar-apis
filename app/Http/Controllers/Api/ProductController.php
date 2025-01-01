@@ -640,11 +640,11 @@ class ProductController extends Controller
     {
         $valid = Validator::make($request->all(), [
             'title' => 'required',
-            'price' => 'nullable',
+            'price' => 'required',
             'discount' => 'nullable',
             'product_desc' => 'required',
-            'product_single_image' => 'required',
-            'product_multiple_images' => 'required|array',
+            'product_single_image' => 'nullable',
+            'product_multiple_images' => 'nullable|array',
             'variations' => 'nullable',
             'tags' => 'required',
             'sub_category_id' => 'required',
@@ -669,7 +669,7 @@ class ProductController extends Controller
                 $new_product->user_id = '1';
                 $new_product->sub_category_id = $request->sub_category_id;
                 $new_product->title = $request->title;
-                $new_product->price = $request->price ?? 0;
+                $new_product->price = $request->price;
                 $new_product->discount_price = $request->discount ?? 0;
                 $new_product->color = $request->color;
                 $new_product->tags = json_encode($request->tags);

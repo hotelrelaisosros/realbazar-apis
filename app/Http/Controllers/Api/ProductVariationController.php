@@ -48,12 +48,15 @@ class ProductVariationController extends Controller
             'size' => 'nullable|string|max:255',
             'stock' => 'nullable|integer|min:0',
             'price' => 'nullable|numeric|min:0',
+            'metal_type_id' => 'nullable|numeric',
+            'gem_shape_id' => 'nullable|numeric',
         ]);
 
         if ($valid->fails()) {
             return response()->json(['status' => false, 'message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
-
+        // echo $request["size"];
+        // return;
         $productVariation = ProductVariation::create($request->all());
 
         return response()->json([
@@ -81,7 +84,8 @@ class ProductVariationController extends Controller
             'stock' => 'nullable|integer|min:0',
             'price' => 'nullable|numeric|min:0',
             'title' => 'nullable|string',
-
+            'metal_type_id' => 'nullable|numeric',
+            'gem_shape_id' => 'nullable|numeric',
         ]);
 
         if ($valid->fails()) {
@@ -94,11 +98,22 @@ class ProductVariationController extends Controller
             return response()->json(['message' => 'Product variation not found!'], 404);
         }
 
-        $productVariation->update($request->all());
+        // Filter and store only updated fields
+        $updatedFields = [];
+        foreach ($request->all() as $key => $value) {
+            if ($value !== null && $productVariation->{$key} != $value) {
+                $updatedFields[$key] = $value;
+            }
+        }
+
+        if (!empty($updatedFields)) {
+            $productVariation->update($updatedFields);
+        }
 
         return response()->json([
             'message' => 'Product variation updated successfully!',
             'product_variation' => $productVariation,
+            'updated_fields' => $updatedFields,
         ]);
     }
 

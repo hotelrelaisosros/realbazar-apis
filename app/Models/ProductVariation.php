@@ -12,7 +12,7 @@ use App\Exceptions\ProductStatusException;
 class ProductVariation extends Model
 {
     use HasFactory;
-    protected $fillable = ['product_id', 'price', 'title', 'stock'];
+    protected $fillable = ['product_id', 'price', 'title', 'stock', 'size', 'metal_type_id', 'gem_shape_id'];
 
     protected $hidden = [
         'created_at',

@@ -96,23 +96,23 @@ class ProductSeeder extends Seeder
         }
 
         $metal_type_category = [
-            ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Gold', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
+            ['title' => 'Platinum', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
+            ['title' => 'Golg Platinum', "image" => "upload/metal_types/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Gold', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
+            ['title' => 'Platinum', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
+            ['title' => 'Golg Platinum', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
         ];
         foreach ($metal_type_category as $stoneType) {
             MetalTypeCategory::create($stoneType);
         }
 
         $gem_shapes = [
-            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
-            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
-            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
-            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
-            ['name' => 'Gold', "image" => "upload/images/bspoke/image1.png"],
+            ['name' => 'Gold', "image" => "upload/images/gemshapes/image1.png"],
+            ['name' => 'Gold', "image" => "upload/images/gemshapes/image1.png"],
+            ['name' => 'Gold', "image" => "upload/images/gemshapes/image1.png"],
+            ['name' => 'Gold', "image" => "upload/images/gemshapes/image1.png"],
+            ['name' => 'Gold', "image" => "upload/images/gemshapes/image1.png"],
         ];
         foreach ($gem_shapes as $stoneType) {
             Gemshape::create($stoneType);
@@ -213,12 +213,12 @@ class ProductSeeder extends Seeder
         //variation seeder
 
         $metal_type_category = [
-            ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Gold', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
-            ['title' => 'Golg Platinum', "image" => "upload/images/bspoke/image1.png", "type" => "WG"],
+            ['title' => 'Gold', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
+            ['title' => 'Platinum', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
+            ['title' => 'Golg Platinum', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
+            ['title' => 'Gold', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
+            ['title' => 'Platinum', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
+            ['title' => 'Golg Platinum', "image" => "upload/images/metal_types/image1.png", "type" => "WG"],
         ];
         foreach ($metal_type_category as $stoneType) {
             MetalTypeCategory::create($stoneType);
@@ -289,6 +289,63 @@ class ProductSeeder extends Seeder
                 'metal_type_id' => $metalTypes[array_rand($metalTypes)],
                 'gem_shape_id' => $gemShapes[array_rand($gemShapes)],
             ]);
+        }
+
+
+        //updated data seeder
+        $products = [
+            [
+                'sub_category_id' => 1,
+                'title' => 'Product 1',
+                'price' => 1000,
+                'discount_price' => 900,
+                'color' => 'Red',
+                'desc' => 'This is the description of Product 1',
+                'tags' => 'tag1,tag2',
+                'status' => 'approved',
+                'user_id' => 1,
+                'configurations' => json_encode(['key1' => 'value1', 'key2' => 'value2']),
+            ],
+            [
+                'sub_category_id' => 2,
+                'title' => 'Product 2',
+                'price' => 1500,
+                'discount_price' => 1200,
+                'color' => 'Blue',
+                'desc' => 'This is the description of Product 2',
+                'tags' => 'tag3,tag4',
+                'status' => 'approved',
+                'user_id' => 1,
+                'configurations' => json_encode(['key3' => 'value3', 'key4' => 'value4']),
+            ],
+        ];
+
+        foreach ($products as $productData) {
+            $product = Product::create($productData);
+
+            // Create 3 variations for each product
+            for ($i = 1; $i <= 3; $i++) {
+                $variation = ProductVariation::create([
+                    'product_id' => $product->id,
+                    'title' => "{$product->title} Variation $i",
+                    'size' => 'Size ' . $i,
+                    'stock' => rand(10, 50),
+                    'price' => $product->price + $i * 100,
+                    'metal_type_id' => 1,
+                    'gem_shape_id' => 1,
+                ]);
+
+                // Create 1 image for each variation
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'variant_id' => $variation->id,
+                    'name' => "{$variation->title} Image",
+                    'image' => "variation_{$variation->id}_image.jpg",
+                    'image_collection' => json_encode(["variation_{$variation->id}_image.jpg"]),
+                    'small_image' => "variation_{$variation->id}_small.jpg",
+                    'type' => 'main',
+                ]);
+            }
         }
     }
 }

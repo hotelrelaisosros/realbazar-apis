@@ -403,7 +403,7 @@ class AuthController extends Controller
             }
 
 
-            if ($user->hasVerifiedEmail()) {
+            if ($user->hasVerifiedEmail() && empty($request["send_code_only"])) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Email is already verified.',
@@ -424,7 +424,7 @@ class AuthController extends Controller
                     ['id' => $user->id, 'hash' => sha1($user->email)]
                 );
             } else {
-                $link = "";
+                $link = null;
             }
 
 
