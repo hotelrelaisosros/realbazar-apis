@@ -717,9 +717,9 @@ class ProductController extends Controller
                 // }
 
                 //ensure configurations for ring products
-                if ($request->sub_category_id == 1 && $new_product->id && $product_image->id) {
+                if ($request->sub_category_id == 1 && $new_product->id) {
                     $product_enum = new ProductEnum();
-                    $product_enum->metal_types = json_encode([$product_image->id]);
+                    // $product_enum->metal_types = json_encode([$product_image->id]);
                     $product_enum->gem_shape_id = 1;
                     // $product_enum->default_metal_id = $product_image->id;
                     $product_enum->band_width_ids = json_encode(BandWidth::pluck('id')->toArray());
@@ -1677,21 +1677,24 @@ class ProductController extends Controller
         // if ($enum) {
         $productEnum = ProductEnum::where('product_id', $product_id)->first();
 
-        if (!$productEnum) {
-            return;
-        }
+        // if (!$productEnum) {
+        //     return;
+        // }
 
         // Map the related data models based on the IDs stored in the ProductEnum
-        $productEnum = [
-            'band_width' => $this->getRelatedModels($productEnum->band_width_ids, BandWidth::class),
-            'accent_stone_types' => $this->getRelatedModels($productEnum->accent_stone_type_ids, AccentStoneTypes::class),
-            'setting_heights' => $this->getRelatedModels($productEnum->setting_height_ids, SettingHeight::class),
-            'prong_styles' => $this->getRelatedModels($productEnum->prong_style_ids, ProngStyle::class),
-            'ring_sizes' => $this->getRelatedModels($productEnum->ring_size_ids, RingSize::class),
-            'bespoke_customizations' => $this->getRelatedModels($productEnum->bespoke_customization_ids, BespokeCustomization::class),
-            'birth_stones' => $this->getRelatedModels($productEnum->birth_stone_ids, BirthStone::class),
-        ];
-        $variation["enumeration"] = $productEnum;
+        if ($productEnum) {
+            $productEnum = [
+                'band_width' => $this->getRelatedModels($productEnum->band_width_ids, BandWidth::class),
+                'accent_stone_types' => $this->getRelatedModels($productEnum->accent_stone_type_ids, AccentStoneTypes::class),
+                'setting_heights' => $this->getRelatedModels($productEnum->setting_height_ids, SettingHeight::class),
+                'prong_styles' => $this->getRelatedModels($productEnum->prong_style_ids, ProngStyle::class),
+                'ring_sizes' => $this->getRelatedModels($productEnum->ring_size_ids, RingSize::class),
+                'bespoke_customizations' => $this->getRelatedModels($productEnum->bespoke_customization_ids, BespokeCustomization::class),
+                'birth_stones' => $this->getRelatedModels($productEnum->birth_stone_ids, BirthStone::class),
+            ];
+        }
+
+        $variation["enumeration"] = $productEnum ?? null;
         // }
 
         $other_variants = ProductVariation::where('product_id', $product_id)

@@ -9,6 +9,8 @@ class ImageHelper
 {
     public static function formatImageUrl($imagePath)
     {
+        $imagePath = str_replace('\\', '', $imagePath);
+
         if (!str_starts_with($imagePath, 'https://')) {
 
             if (strpos($imagePath, '\\') !== false) {

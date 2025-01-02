@@ -31,13 +31,22 @@ class ProductVariationController extends Controller
         }
 
 
+
         $productVariations = ProductVariation::where('product_id', $request->product_id)->get();
 
+        $isRing = Product::isRing($request["product_id"])->exists() ? true : false;
+
+        // Add isRing to each variation
+        // $productVariations = $productVariations->map(function ($variation) use ($isRing) {
+        //     $variation->isRing = $isRing; // Add isRing to each variation
+        //     return $variation;
+        // });
 
         return response()->json([
             'status' => true,
             'message' => count($productVariations) > 0 ? 'Product variations found' : 'No product variations found',
             'product_variations' => ProductVariationAdminResource::collection($productVariations),
+            'isRing' => $isRing,
         ]);
     }
 

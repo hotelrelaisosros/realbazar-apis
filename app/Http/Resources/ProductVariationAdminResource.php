@@ -25,6 +25,7 @@ class ProductVariationAdminResource extends JsonResource
             "price" => $this->price,
             "metal_type" => $this->metal_type_id && MetalTypeCategory::find($this->metal_type_id) ? MetalTypeCategory::find($this->metal_type_id) : null,
             "gem_shape" => $this->gem_shape_id && Gemshape::find($this->gem_shape_id) ? Gemshape::find($this->gem_shape_id) : null,
+            // "isRing" => $this->isRing ?? false, // Return isRing here
         ];
     }
 }
