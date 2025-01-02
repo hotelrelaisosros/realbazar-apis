@@ -292,8 +292,8 @@ Route::prefix('api/v1')->group(function () {
         });
 
         Route::prefix('simple')->group(function () {
-            Route::post('/get_product', [Api\ProductController::class, 'getAllNonRings']);
-            Route::post('/step2', [Api\ProductController::class, 'showSpecificRingVarition']);
+            Route::post('/get_product', [Api\ProductController::class, 'getSpecificNonRing']);
+            Route::post('/get_all_products', [Api\ProductController::class, 'getAllNonRingProducts']);
         });
     });
 

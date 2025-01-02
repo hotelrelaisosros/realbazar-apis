@@ -40,3 +40,17 @@ gem shape
 git add .
 git commit -m '23 commit'
 git push -u origin main
+
+
+
+
+
+
+
+
+changes on admin panel
+
+put the variations tab 
+get the images under variation
+
+put the single image for the product so the product has one image for non rings

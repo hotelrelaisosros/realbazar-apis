@@ -47,13 +47,6 @@ use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
-    protected $file;
-    public function __construct(FileController $file)
-    {
-        $this->file = $file;
-    }
-
-
     public function get_all_ring_product_images()
     {
 
@@ -1722,7 +1715,7 @@ class ProductController extends Controller
     }
 
 
-    public function getAllNonRings(Request $request)
+    public function getSpecificNonRing(Request $request)
     {
 
         $valid = Validator::make($request->all(), [
@@ -1805,5 +1798,32 @@ class ProductController extends Controller
         $idArray = explode(',', $ids);
 
         return $modelClass::whereIn('id', $idArray)->get()->toArray();
+    }
+    public function getAllNonRingProducts(Request $request)
+    {
+
+        $valid = Validator::make($request->all(), [
+            'sub_category_id' => 'required|exists:sub_categories,id',
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+        }
+        if ($request["sub_category_id"] == 1) {
+            return response()->json(['status' => false, 'Message' => 'Method is only for non customizable products']);
+        }
+
+        $query = Product::where("sub_category_id", $request["sub_category_id"])->get();
+
+        $data = $query->map(function ($variation) {
+            return [
+                'product' => new ProductNonRingResource($variation),
+            ];
+        });
+
+        return response()->json([
+            'message' => 'Ring products',
+            'data' => $data,
+        ], 200);
     }
 }

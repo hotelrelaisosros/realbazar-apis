@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ProductVariationAdminResource;
 use App\Models\ProductImage;
 use App\Models\Product;
 
@@ -32,10 +33,11 @@ class ProductVariationController extends Controller
 
         $productVariations = ProductVariation::where('product_id', $request->product_id)->get();
 
+
         return response()->json([
             'status' => true,
             'message' => count($productVariations) > 0 ? 'Product variations found' : 'No product variations found',
-            'product_variations' => $productVariations,
+            'product_variations' => ProductVariationAdminResource::collection($productVariations),
         ]);
     }
 

@@ -10,6 +10,10 @@ class ImageHelper
     public static function formatImageUrl($imagePath)
     {
         if (!str_starts_with($imagePath, 'https://')) {
+
+            if (strpos($imagePath, '\\') !== false) {
+                $imagePath = str_replace('\\', '', $imagePath);
+            }
             return url('storage/' . $imagePath);
         }
 
