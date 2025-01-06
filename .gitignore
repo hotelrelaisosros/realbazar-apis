@@ -1,4 +1,5 @@
 /node_modules
+/app/hidden/*
 /public/build
 /public/hot
 /public/storage
