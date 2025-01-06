@@ -33,7 +33,7 @@ return new class extends Migration
             $table->unsignedBigInteger('setting_height_id')->nullable();
             $table->unsignedBigInteger('prong_style_id')->nullable();
             $table->unsignedBigInteger('ring_size_id')->nullable();
-            $table->unsignedBigInteger('bespoke_customization_types_id')->nullable();
+            $table->string('bespoke_customizcolumn: ation_types_id')->nullable();
             $table->unsignedBigInteger('birth_stone_id')->nullable();
             $table->unsignedBigInteger('gem_stone_id')->nullable();
             $table->unsignedBigInteger('gem_stone_color_id')->nullable();

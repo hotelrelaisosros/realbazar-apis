@@ -100,7 +100,7 @@ class OrderController extends Controller
                                 //get product enums
                                 if (!empty($product["customizable"])) {
 
-                                    $order_product->metal_type_id = $product["customizable"]["metal_type_id"] ?? null;
+                                    // $order_product->metal_type_id = $product["customizable"]["metal_type_id"] ?? null;
                                     $order_product->metal_type_karat = $product["customizable"]["metal_type_karat"] ?? null;
                                     $order_product->gem_shape_id = $product["customizable"]["gem_shape_id"] ?? null;
                                     $order_product->band_width_id = $product["customizable"]["band_width_id"] ?? null;
@@ -147,7 +147,7 @@ class OrderController extends Controller
                     $appnot->notification = $message;
                     $appnot->navigation = $title;
                     $appnot->save();
-                    NotiSend::sendNotif($user->device_token, '', $title, $message);
+                    // NotiSend::sendNotif($user->device_token, '', $title, $message);
                     DB::commit();
                     return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
                     // else {
@@ -172,7 +172,7 @@ class OrderController extends Controller
                     $appnot->notification = $message;
                     $appnot->navigation = $title;
                     $appnot->save();
-                    NotiSend::sendNotif($user->device_token, '', $title, $message);
+                    // NotiSend::sendNotif($user->device_token, '', $title, $message);
                     DB::commit();
                     return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
                 }
