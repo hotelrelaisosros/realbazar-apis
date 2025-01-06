@@ -50,6 +50,7 @@ class ProductVariationController extends Controller
         ]);
     }
 
+
     // Store a newly created resource in storage.
     public function store(Request $request)
     {
@@ -70,7 +71,17 @@ class ProductVariationController extends Controller
         // return;
         $productVariation = ProductVariation::create($request->all());
 
+        //dd function 1
+        $check_image = ProductImage::where("product_id", $request["product_id"])
+            ->whereNull("variant_id")
+            ->first();
+        if ($check_image) {
+
+            $check_image->variant_id = $productVariation->id;
+            $check_image->save();
+        }
         return response()->json([
+            'status' => true,
             'message' => 'Product variation created successfully!',
             'product_variation' => $productVariation,
         ]);
@@ -122,6 +133,7 @@ class ProductVariationController extends Controller
         }
 
         return response()->json([
+            'status' => true,
             'message' => 'Product variation updated successfully!',
             'product_variation' => $productVariation,
             'updated_fields' => $updatedFields,
@@ -162,11 +174,19 @@ class ProductVariationController extends Controller
         $productVariation = ProductVariation::find($id);
 
         if (!$productVariation) {
-            return response()->json(['message' => 'Product variation not found!'], 404);
+            return response()->json([
+                'status' => false,
+
+                'message' => 'Product variation not found!'
+            ], 404);
         }
 
         $productVariation->delete();
 
-        return response()->json(['message' => 'Product variation deleted successfully!']);
+        return response()->json([
+            'status' => true,
+
+            'message' => 'Product variation deleted successfully!'
+        ], 202);
     }
 }

@@ -71,7 +71,7 @@ class BirthStoneController extends Controller
     }
     protected function formatImageUrl($imagePath)
     {
-        if (!str_starts_with($imagePath, 'https://')) {
+        if (!str_starts_with($imagePath, 'http')) {
             return url('storage/' . $imagePath);
         }
 

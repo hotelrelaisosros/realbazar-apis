@@ -12,6 +12,16 @@ use Illuminate\Support\Facades\DB;
 
 class NotificationController extends Controller
 {
+
+    public function notisend2(Request $request)
+    {
+        $pvid = env('VAPID_KEY_PRIVATE');
+        if (NotiSend::sendNotif($pvid, '', $request->title, $request->message)) {
+            return  response()->json(['status' => true, 'Message' => 'Notification sent']);
+        } else {
+            return response()->json(['status' => false, 'Message' => 'Notification sent']);
+        }
+    }
     public function allNotification($skip, $take, $status)
     {
         $not = AppNotification::with('user');
@@ -26,7 +36,7 @@ class NotificationController extends Controller
             $not_count->where('status', 0);
         }
         // if ($skip && $take) {
-            $not->skip($skip)->take($take);
+        $not->skip($skip)->take($take);
         // }
         $noti = $not->orderBy('id', 'DESC')->get();
         $noti_count = $not_count->count();
@@ -37,28 +47,36 @@ class NotificationController extends Controller
 
     public function notification()
     {
-        $noti = AppNotification::orderBy('id', 'DESC')->where('user_id', auth()->user()->id)->where('status', '0')->get();
-        $notifications_count = AppNotification::where('user_id', auth()->user()->id)->where('status', '0')->count();
-        if (count($noti)) return response()->json(['status' => true, 'Message' => "Notifications found", 'Notifications' => $noti ?? [], "notifications_count" => $notifications_count ?? []], 200);
-        else return response()->json(['status' => false, 'Message' => "Notifications not found", 'Notifications' => $noti ?? [], "notifications_count" => $notifications_count ?? []]);
+        if (auth()->user()) {
+            $noti = AppNotification::orderBy('id', 'DESC')->where('user_id', auth()->user()->id)->where('status', '0')->get();
+            $notifications_count = AppNotification::where('user_id', auth()->user()->id)->where('status', '0')->count();
+            if (count($noti)) return response()->json(['status' => true, 'Message' => "Notifications found", 'Notifications' => $noti ?? [], "notifications_count" => $notifications_count ?? []], 200);
+            else return response()->json(['status' => false, 'Message' => "Notifications not found", 'Notifications' => $noti ?? [], "notifications_count" => $notifications_count ?? []], 404);
+        } else {
+            return response()->json(['status' => false, 'Message' => " User is not authenticated"], 404);
+        }
     }
 
     public function notification_change($id = null)
     {
-        if (!empty($id)) {
-            $noti = AppNotification::where('user_id', auth()->user()->id)->where('status', '0')->where('id', $id)->first();
-            $noti->status = 1;
-            $noti->save();
-        } else {
-            $noti = AppNotification::where('user_id', auth()->user()->id)->where('status', '0')->get();
-            if (!count($noti)) return response()->json(['status' => false, 'Message' => "Notifications not found"]);
-            foreach ($noti as $key => $value) {
-                $value->status = 1;
-                $value->save();
+        if (auth()->user()) {
+            if (!empty($id)) {
+                $noti = AppNotification::where('user_id', auth()->user()->id)->where('status', '0')->where('id', $id)->first();
+                $noti->status = 1;
+                $noti->save();
+            } else {
+                $noti = AppNotification::where('user_id', auth()->user()->id)->where('status', '0')->get();
+                if (!count($noti)) return response()->json(['status' => false, 'Message' => "Notifications not found"]);
+                foreach ($noti as $key => $value) {
+                    $value->status = 1;
+                    $value->save();
+                }
             }
+            $notifications_count = AppNotification::where('user_id', auth()->user()->id)->where('status', '0')->count();
+            return response()->json(['status' => true, 'Message' => "Notifications found", 'Notifications' => $noti ?? [], "notifications_count" => $notifications_count ?? []], 200);
+        } else {
+            return response()->json(['status' => false, 'Message' => " User is not authenticated"], 404);
         }
-        $notifications_count = AppNotification::where('user_id', auth()->user()->id)->where('status', '0')->count();
-        return response()->json(['status' => true, 'Message' => "Notifications found", 'Notifications' => $noti ?? [], "notifications_count" => $notifications_count ?? []], 200);
     }
 
     public function sendNotification(Request $request)

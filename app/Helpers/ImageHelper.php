@@ -11,7 +11,10 @@ class ImageHelper
     {
         $imagePath = str_replace('\\', '', $imagePath);
 
-        if (!str_starts_with($imagePath, 'https://')) {
+        if ($imagePath == null | $imagePath == "") {
+            return null;
+        }
+        if (!str_starts_with($imagePath, 'http')) {
 
             if (strpos($imagePath, '\\') !== false) {
                 $imagePath = str_replace('\\', '', $imagePath);
@@ -83,16 +86,7 @@ class ImageHelper
     }
 
 
-    // public  function hideImage($imagePath)
-    // {
-    //     if (!str_starts_with($imagePath, 'https://')) {
-    //         // Return the "serve-file" URL with the relative file path
-    //         return url("serve-file/{$imagePath}");
-    //     } else {
-    //         $resolvedPath = $imagePath; // If already a full URL, use as is
-    //         return $imagePath;
-    //     }
-    // }
+
 
     public function formatProductImages2($all_image)
     {

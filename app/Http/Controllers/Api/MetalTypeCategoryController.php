@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\ImageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\MetalTypeCategory;
 use Illuminate\Http\Request;
@@ -68,7 +69,7 @@ class MetalTypeCategoryController extends Controller
             ], 404);
         }
 
-        $metalTypeCategory->image = $this->formatImageUrl($metalTypeCategory->image);
+        // $metalTypeCategory->image = ImageHelper::formatImageUrl($metalTypeCategory->image);
 
         return response()->json($metalTypeCategory);
     }
@@ -145,12 +146,5 @@ class MetalTypeCategoryController extends Controller
     }
 
     // Helper function to format image URL
-    protected function formatImageUrl($imagePath)
-    {
-        if (!str_starts_with($imagePath, 'https://')) {
-            return url('storage/' . $imagePath);
-        }
 
-        return $imagePath;
-    }
 }

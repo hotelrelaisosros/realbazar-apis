@@ -16,9 +16,9 @@ class GemshapeController extends Controller
     {
         $gemshapes = Gemshape::all();
 
-        $gemshapes->each(function ($gemshape) {
-            $gemshape->image = $this->formatImageUrl($gemshape->image); // Format image URL
-        });
+        // $gemshapes->each(function ($gemshape) {
+        //     $gemshape->image = $this->formatImageUrl($gemshape->image); // Format image URL
+        // });
 
 
         return response()->json([
@@ -75,7 +75,7 @@ class GemshapeController extends Controller
     }
     protected function formatImageUrl($imagePath)
     {
-        if (!str_starts_with($imagePath, 'https://')) {
+        if (!str_starts_with($imagePath, 'http')) {
             return url('storage/' . $imagePath);
         }
 

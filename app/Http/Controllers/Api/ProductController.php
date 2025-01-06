@@ -883,7 +883,37 @@ class ProductController extends Controller
         }
     }
 
+    public function image_by_variant(Request $request)
+    {
+        $valid = Validator::make($request->all(), [
+            'variant_id' => 'nullable|exists:product_variations,id',
+            'product_id' => 'required|exists:products,id',
+        ]);
 
+        if ($valid->fails()) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Validation errors',
+                'errors' => $valid->errors()
+            ]);
+        }
+
+        $all_image = ProductImage::where('product_id', $request["product_id"]);
+        if (!empty($request["variant_id"])) {
+            $all_image->where('variant_id', $request["variant_id"]);
+        }
+        $all_image = $all_image->get();
+
+
+        $productHelper = new ImageHelper();
+        $formattedImages = $productHelper->formatProductImages($all_image);
+
+        if ($formattedImages->isNotEmpty()) {
+            return response()->json(['status' => true, 'message' => 'Product Image found', 'images' => $formattedImages], 200);
+        }
+
+        return response()->json(['status' => false, 'message' => 'Product Image not found'], 404);
+    }
 
     public function image($productId)
     {
@@ -929,10 +959,11 @@ class ProductController extends Controller
     {
         $valid = Validator::make($request->all(), [
             'product_id' => 'required|numeric|exists:products,id',
-            'product_single_image' => 'nullable|image',
+            'product_single_image' => 'required|image|mimes:jpg,jpeg,png',
             'product_multiple_images' => 'nullable|array',
+            'product_multiple_images.*' => 'image|mimes:jpg,jpeg,png',
             'product_small_image' => 'nullable',
-            'name' => "nullable|string",
+            // 'name' => "nullable|string",
             'variant_id' => 'nullable|exists:product_variations,id',
         ]);
 
@@ -946,9 +977,11 @@ class ProductController extends Controller
 
             $isRing =  Product::isRing($valid['product_id'])->exists();
             $checkVariantExists = ProductImage::where('variant_id', $request['variant_id'])->first();
-            if ($checkVariantExists) {
-                return response()->json(['status' => false, 'Message' => 'Image already exists for this variant'], 404);
-            }
+
+
+            // if ($checkVariantExists) {
+            //     return response()->json(['status' => false, 'Message' => 'Image already exists for this variant'], 404);
+            // }
 
             // $checkVariantProduct = ProductVariation::find($request['variant_id']);
             // if ($checkVariantProduct->product_id !== $request['product_id']) {
@@ -976,19 +1009,19 @@ class ProductController extends Controller
                 $request->product_single_image->storeAs($productDir, $filename, "public");
                 $product_image->image = $productDir . "/" . $filename;
 
-                if ($isRing) {
-                    $product_image->name = $valid["name"];
+                // if ($isRing) {
+                //     $product_image->name = $valid["name"];
 
-                    // Ensure the small-icon directory exists
-                    $smallIconDir = $productDir . "/small-icon";
-                    if (!Storage::disk('public')->exists($smallIconDir)) {
-                        Storage::disk('public')->makeDirectory($smallIconDir);
-                    }
+                //     // Ensure the small-icon directory exists
+                //     $smallIconDir = $productDir . "/small-icon";
+                //     if (!Storage::disk('public')->exists($smallIconDir)) {
+                //         Storage::disk('public')->makeDirectory($smallIconDir);
+                //     }
 
-                    $smallImageFilename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
-                    $request->product_single_image->storeAs($smallIconDir, $smallImageFilename, "public");
-                    $product_image->small_image = $smallIconDir . "/" . $smallImageFilename;
-                }
+                //     $smallImageFilename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
+                //     $request->product_single_image->storeAs($smallIconDir, $smallImageFilename, "public");
+                //     $product_image->small_image = $smallIconDir . "/" . $smallImageFilename;
+                // }
             }
 
             $multiple_images = [];
@@ -1012,20 +1045,7 @@ class ProductController extends Controller
                 throw new \Exception("Product image not saved!");
             }
 
-            // if ($isRing) {
-            //     $getProductEnum = ProductEnum::where("product_id", $request->product_id)->first(); // Fetch the record
 
-            //     if ($getProductEnum) {
-            //         $existingMetalTypes = json_decode($getProductEnum->metal_types, true) ?? [];
-            //         $newValue =  $product_image->id;
-            //         if (!in_array($newValue, $existingMetalTypes)) {
-            //             $existingMetalTypes[] = $newValue;
-            //         }
-
-            //         $getProductEnum->metal_types = json_encode($existingMetalTypes);
-            //         $getProductEnum->save();
-            //     }
-            // }
             $image = ProductImage::with('product')->where("id", $product_image->id)->first();
 
             return response()->json(['status' => true, 'Message' => 'Product Image(s) Added Successfully!', "image" => $image], 200);
@@ -1504,14 +1524,11 @@ class ProductController extends Controller
             ->get();
         return response()->json(["status" => true, 'lineChart' => $lineChart], 200);
     }
-
-
     public function updateProductEnums(Request $request)
     {
         $validatedData = $request->validate([
-            'product_id' => 'required|integer',
-            'metal_types' => 'nullable|array',
-            'gem_shape_id' => 'nullable|integer',
+            'product_id' => 'required|exists:products,id',
+
             'band_width_ids' => 'nullable|array',
             'accent_stone_type_ids' => 'nullable|array',
             'setting_height_ids' => 'nullable|array',
@@ -1521,33 +1538,61 @@ class ProductController extends Controller
             'birth_stone_ids' => 'nullable|array',
         ]);
 
-        $product_check = ProductEnum::find($validatedData["product_id"]);
-        if (!$product_check) {
-            return response()->json(['message' => 'Product  not found'], 404);
+        // Fetch the existing ProductEnum record or create a new one
+        $productEnum = ProductEnum::firstOrNew(['product_id' => $validatedData['product_id']]);
+
+        if (!$productEnum->exists) {
+            // Insert new record logic
+            $productEnum->product_id = $validatedData['product_id'];
+
+            $productEnum->band_width_ids = isset($validatedData['band_width_ids']) ? json_encode($validatedData['band_width_ids']) : null;
+            $productEnum->accent_stone_type_ids = isset($validatedData['accent_stone_type_ids']) ? json_encode($validatedData['accent_stone_type_ids']) : null;
+            $productEnum->setting_height_ids = isset($validatedData['setting_height_ids']) ? json_encode($validatedData['setting_height_ids']) : null;
+            $productEnum->prong_style_ids = isset($validatedData['prong_style_ids']) ? json_encode($validatedData['prong_style_ids']) : null;
+            $productEnum->ring_size_ids = isset($validatedData['ring_size_ids']) ? json_encode($validatedData['ring_size_ids']) : null;
+            $productEnum->bespoke_customization_ids = isset($validatedData['bespoke_customization_ids']) ? json_encode($validatedData['bespoke_customization_ids']) : null;
+            $productEnum->birth_stone_ids = isset($validatedData['birth_stone_ids']) ? json_encode($validatedData['birth_stone_ids']) : null;
+
+            $productEnum->save();
+
+            return response()->json(['message' => 'New product enum created successfully', 'data' => $productEnum], 201);
         }
 
-        // Fetch the product enum record
-        $productEnum = ProductEnum::where('product_id', $validatedData['product_id'])->first();
+        // Update existing record logic
+        $updatedFields = [];
 
-        if (!$productEnum) {
-            return response()->json(['message' => 'Sorry this product cannot be customized'], 404);
+
+        if (isset($validatedData['band_width_ids'])) {
+            $updatedFields['band_width_ids'] = json_encode($validatedData['band_width_ids']);
+        }
+        if (isset($validatedData['accent_stone_type_ids'])) {
+            $updatedFields['accent_stone_type_ids'] = json_encode($validatedData['accent_stone_type_ids']);
+        }
+        if (isset($validatedData['setting_height_ids'])) {
+            $updatedFields['setting_height_ids'] = json_encode($validatedData['setting_height_ids']);
+        }
+        if (isset($validatedData['prong_style_ids'])) {
+            $updatedFields['prong_style_ids'] = json_encode($validatedData['prong_style_ids']);
+        }
+        if (isset($validatedData['ring_size_ids'])) {
+            $updatedFields['ring_size_ids'] = json_encode($validatedData['ring_size_ids']);
+        }
+        if (isset($validatedData['bespoke_customization_ids'])) {
+            $updatedFields['bespoke_customization_ids'] = json_encode($validatedData['bespoke_customization_ids']);
+        }
+        if (isset($validatedData['birth_stone_ids'])) {
+            $updatedFields['birth_stone_ids'] = json_encode($validatedData['birth_stone_ids']);
         }
 
-        // Update the product enum record with dynamic fields
-        $productEnum->update([
-            'gem_shape_id' => $validatedData['gem_shape_id'] ?? $productEnum->gem_shape_id,
-            'metal_types' =>  isset($validatedData['metal_types']) ? json_encode($validatedData['metal_types']) : $productEnum->metal_types,
-            'band_width_ids' => isset($validatedData['band_width_ids']) ? json_encode($validatedData['band_width_ids']) : $productEnum->band_width_ids,
-            'accent_stone_type_ids' => isset($validatedData['accent_stone_type_ids']) ? json_encode($validatedData['accent_stone_type_ids']) : $productEnum->accent_stone_type_ids,
-            'setting_height_ids' => isset($validatedData['setting_height_ids']) ? json_encode($validatedData['setting_height_ids']) : $productEnum->setting_height_ids,
-            'prong_style_ids' => isset($validatedData['prong_style_ids']) ? json_encode($validatedData['prong_style_ids']) : $productEnum->prong_style_ids,
-            'ring_size_ids' => isset($validatedData['ring_size_ids']) ? json_encode($validatedData['ring_size_ids']) : $productEnum->ring_size_ids,
-            'bespoke_customization_ids' => isset($validatedData['bespoke_customization_ids']) ? json_encode($validatedData['bespoke_customization_ids']) : $productEnum->bespoke_customization_ids,
-            'birth_stone_ids' => isset($validatedData['birth_stone_ids']) ? json_encode($validatedData['birth_stone_ids']) : $productEnum->birth_stone_ids,
-        ]);
+        if (!empty($updatedFields)) {
+            $productEnum->update($updatedFields);
+        }
 
         return response()->json(['message' => 'Product enum updated successfully', 'data' => $productEnum], 200);
     }
+
+
+
 
     //step1
     public function getAllRingProducts(Request $request)
@@ -1828,5 +1873,139 @@ class ProductController extends Controller
             'message' => 'Ring products',
             'data' => $data,
         ], 200);
+    }
+
+    public function deleteOneImageRecord(Request $request)
+    {
+        $valid = Validator::make($request->all(), [
+            'id' => 'required|exists:product_images,id',
+            'image_url' => 'required|string',
+            'type' => 'required|in:main,additional',
+        ]);
+        if ($valid->fails()) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Validation errors',
+                'errors' => $valid->errors(),
+            ]);
+        }
+
+        $recordId = $request['id'];
+        $imageUrl =  $request['image_url'];
+        $type = $request['type'];
+
+        // Find the record in the database
+        $product = ProductImage::find($recordId);
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Image not found.',
+            ], 404);
+        }
+
+
+        if ($type === 'main') {
+            if ($product->image && str_contains($product->image, $imageUrl)) {
+                Storage::delete($product->image);
+                $product->image = null;
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Main image not found.',
+                ], 404);
+            }
+        } elseif ($type === 'additional') {
+            $imageCollection = json_decode($product->image_collection, true) ?? [];
+            $matchedKey = array_search($imageUrl, $imageCollection);
+            if ($matchedKey !== false) {
+                Storage::delete($imageCollection[$matchedKey]);
+                unset($imageCollection[$matchedKey]);
+                $product->image_collection = json_encode(array_values($imageCollection), JSON_UNESCAPED_SLASHES); // Use JSON_UNESCAPED_SLASHES to avoid escaping slashes
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Image not found in collection.',
+                ], 404);
+            }
+        }
+        $product->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Image deleted successfully. in ' . $request["type"],
+        ], 202);
+    }
+
+    public function addImageDynamic(Request $request)
+    {
+        $valid = Validator::make($request->all(), [
+            'image_id' => 'required|numeric|exists:product_images,id',
+            'type' => 'required|in:main,additional',
+            'image' => 'required|image|mimes:jpg,jpeg,png',
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Validation errors',
+                'errors' => $valid->errors(),
+            ]);
+        }
+
+        $valid = $valid->validated();
+
+        try {
+            // Fetch the product image record by image_id
+            $productImage = ProductImage::find($valid['image_id']);
+
+            $productDir = 'product/' . $productImage->product_id;
+
+            if (!Storage::disk('public')->exists($productDir)) {
+                Storage::disk('public')->makeDirectory($productDir);
+            }
+
+            if ($request->type === 'main') {
+                // Handle main image
+                if ($productImage->image) {
+                    // Delete existing main image if present
+                    Storage::disk('public')->delete($productImage->image);
+                }
+
+                $mainFilename = "Product-" . time() . "-" . rand() . "." . $request->image->getClientOriginalExtension();
+                $request->image->storeAs($productDir, $mainFilename, "public");
+                $productImage->image = $productDir . '/' . $mainFilename;
+            } elseif ($request->type === 'additional') {
+                // Handle additional images
+                $additionalDir = $productDir . '/additional';
+                if (!Storage::disk('public')->exists($additionalDir)) {
+                    Storage::disk('public')->makeDirectory($additionalDir);
+                }
+
+                $additionalFilename = "Product-" . time() . "-" . rand() . "." . $request->image->getClientOriginalExtension();
+                $request->image->storeAs($additionalDir, $additionalFilename, "public");
+
+                $imageCollection = json_decode($productImage->image_collection, true) ?? [];
+                $imageCollection[] = $additionalDir . '/' . $additionalFilename;
+                $productImage->image_collection = json_encode($imageCollection, JSON_UNESCAPED_SLASHES);
+            }
+
+            if (!$productImage->save()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Could not add image !',
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Image added successfully!',
+                'product_image' => $productImage,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

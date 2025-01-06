@@ -111,6 +111,13 @@ Route::post('delete/image', [Api\ProductController::class, 'deleteImage']);
 Route::post('add/image', [Api\ProductController::class, 'addImage']);
 Route::post('update/image', [Api\ProductController::class, 'updateImage']);
 
+Route::post('image/search_variation_product', [Api\ProductController::class, 'image_by_variant']);
+
+//delete individual images/
+Route::post('delete/images/one_image', [Api\ProductController::class, 'deleteOneImageRecord']);
+
+Route::post('add/images/one_image', [Api\ProductController::class, 'addImageDynamic']);
+
 
 //product image crud
 Route::get('enum/product_id/{id}', [Api\ProductEnumController::class, 'image']);
@@ -177,6 +184,9 @@ Route::get('/changeNotification/{id?}', [Api\NotificationController::class, 'not
 Route::post('/sendAllNotification', [Api\NotificationController::class, 'sendAllNotification']);
 Route::post('/sendNotification', [Api\NotificationController::class, 'sendNotification']);
 Route::post('/singleNotification', [Api\NotificationController::class, 'singleNotification']);
+Route::get('/check_push_notification', [Api\NotificationController::class, 'notisend2']);
+
+
 
 //report
 Route::post('/report', [Api\ReportController::class, 'report']);

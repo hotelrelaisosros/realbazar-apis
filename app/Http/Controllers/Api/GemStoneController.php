@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\GemStone;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class GemStoneController extends Controller
 {
@@ -23,7 +24,7 @@ class GemStoneController extends Controller
     // Create a new gemstone
     public function store(Request $request)
     {
-        $validatedData = $request->validate([
+        $validator = Validator::make($request->all(), [
             'type' => 'required|in:M,LGD',
             'carat' => 'required|numeric',
             'shape' => 'required|string',
@@ -35,7 +36,15 @@ class GemStoneController extends Controller
             'clarity' => 'required|string',
         ]);
 
-        $gemstone = GemStone::create($validatedData);
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+
+        $gemstone = GemStone::create($validator->validated());
 
         if (!empty($gemstone)) {
             return response()->json([
@@ -66,6 +75,26 @@ class GemStoneController extends Controller
     // Update an existing gemstone
     public function update(Request $request, $id)
     {
+        $validator = Validator::make($request->all(), [
+            'type' => 'required|in:M,LGD',
+            'carat' => 'required|numeric',
+            'shape' => 'required|string',
+            'dimension' => 'required|string',
+            'faceting' => 'required|string',
+            'price' => 'required|numeric',
+            'gemstone_color_id' => 'required|integer',
+            'color' => 'required|string',
+            'clarity' => 'required|string',
+        ]);
+
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+        $validatedData = $validator->validated();
         $gemstone = GemStone::find($id);
 
         if (!$gemstone) {
@@ -76,17 +105,6 @@ class GemStoneController extends Controller
             ], 200);
         }
 
-        $validatedData = $request->validate([
-            'type' => 'nullable|in:M,LGD',
-            'carat' => 'nullable|numeric',
-            'shape' => 'nullable|string',
-            'dimension' => 'nullable|string',
-            'faceting' => 'nullable|string',
-            'price' => 'nullable|numeric',
-            'gemstone_color_id' => 'nullable|integer',
-            'color' => 'nullable|string',
-            'clarity' => 'nullable|string',
-        ]);
 
         // Update only if new data is provided
         foreach ($validatedData as $key => $value) {
