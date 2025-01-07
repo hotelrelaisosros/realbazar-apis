@@ -451,6 +451,7 @@ Route::group(['middleware' => ['auth:api']], function () {
     });
 });
 
+Route::get('/enums/getFaceting', [Api\ProductEnumController::class, 'getFaceting'])->name('getfaceing');
 
 Route::get('/serve-file/{filename}', [Api\FileController::class, 'serveFile'])->name('serve-file');
 
