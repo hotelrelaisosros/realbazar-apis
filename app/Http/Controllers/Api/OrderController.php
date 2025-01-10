@@ -102,6 +102,7 @@ class OrderController extends Controller
 
                                     // $order_product->metal_type_id = $product["customizable"]["metal_type_id"] ?? null;
                                     $order_product->metal_type_karat = $product["customizable"]["metal_type_karat"] ?? null;
+                                    $order_product->faceting_id = $product["customizable"]["faceting_id"] ?? null;
                                     $order_product->gem_shape_id = $product["customizable"]["gem_shape_id"] ?? null;
                                     $order_product->band_width_id = $product["customizable"]["band_width_id"] ?? null;
                                     $order_product->accent_stone_type_id = $product["customizable"]["accent_stone_type_id"] ?? null;

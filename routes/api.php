@@ -236,6 +236,7 @@ Route::prefix('api/v1')->group(function () {
 
 
         Route::prefix('search')->group(function () {
+            Route::post('/search_bar', [Api\ProductController::class, 'search_products_bar']);
             Route::get('/step_one', [Api\ProductController::class, 'search_products_step_one']);
             Route::get('/home_page', [Api\ProductController::class, 'search_products_homepage']);
         });

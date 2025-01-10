@@ -186,7 +186,6 @@ class CartController extends Controller
         $cartId = $request->input('cart_id');
         $fieldsToNullify = $request->input('fields_to_nullify');
 
-        // Retrieve the cart item
         $cartItem = Cart::session($userID)->get($cartId);
 
         if (!$cartItem) {
@@ -254,6 +253,8 @@ class CartController extends Controller
             'gem_stone_color_id' => $request->gem_stone_color_id ?? null,
             'engraved_text' => $request->engraved_text ?? null,
             'metal_type_karat' => $request->metal_type_karat ?? null,
+            'faceting_id' => $request->faceting_id ?? null,
+
         ];
     }
 

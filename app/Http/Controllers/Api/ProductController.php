@@ -8,6 +8,9 @@ use App\Http\Resources\ProductVariationResource;
 use App\Http\Resources\ProductImageResource;
 
 use App\Http\Resources\ProductNonRingResource;
+use App\Http\Resources\ProductWithImageResource;
+use App\Http\Resources\SubCategoryResource;
+
 
 use App\Models\AppNotification;
 use App\Models\Banner;
@@ -1935,6 +1938,32 @@ class ProductController extends Controller
             'message' => 'Image deleted successfully. in ' . $request["type"],
         ], 202);
     }
+
+    public function search_products_bar(Request $request)
+    {
+        $valid = Validator::make($request->all(), [
+            'search' => 'required|string',
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+        }
+
+        $search = $request->search;
+        $products = Product::where('title', 'like', '%' . $search . '%')
+            ->with('images')
+            ->limit(6)
+            ->get();
+
+        $sub_categories = SubCategory::where('name', 'like', '%' . $search . '%')->limit(3)->get();
+        return response()->json([
+            'status' => true,
+            'message' => 'Product found',
+            'products' => ProductWithImageResource::collection($products),
+            'sub_categories' => SubCategoryResource::collection($sub_categories)
+        ], 200);
+    }
+
 
     public function addImageDynamic(Request $request)
     {

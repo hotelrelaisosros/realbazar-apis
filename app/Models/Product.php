@@ -23,6 +23,11 @@ class Product extends Model
         return $this->hasMany(ProductImage::class, 'product_id', 'id');
     }
 
+    public function one_image()
+    {
+        return $this->hasMany(ProductImage::class, 'product_id', 'id')->limit(1);
+    }
+
     public function variation()
     {
         return $this->hasMany(ProductVariation::class, 'product_id', 'id');
