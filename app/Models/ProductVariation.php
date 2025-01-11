@@ -40,11 +40,19 @@ class ProductVariation extends Model
         return $this->hasMany(ProductImage::class, 'variant_id', 'id');
     }
 
+    public function images()
+    {
+        return $this->hasMany(ProductImage::class, 'variant_id', 'id');
+    }
+
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id', 'id');
     }
-
+    public function products()
+    {
+        return $this->belongsTo(Product::class, 'product_id', 'id');
+    }
 
     public function metal_type()
     {
@@ -56,5 +64,18 @@ class ProductVariation extends Model
     public function gem_shape()
     {
         return $this->belongsTo(Gemshape::class, 'gem_shape_id', 'id');
+    }
+
+    public function filteredProductImages($productId, $variantId)
+    {
+        return $this->hasOne(ProductImage::class, 'product_id', 'product_id')
+            ->where('product_id', $productId)
+            ->where(function ($query) use ($variantId) {
+                if ($variantId !== null) {
+                    $query->where('variant_id', $variantId);
+                } else {
+                    $query->whereNull('variant_id');
+                }
+            });
     }
 }

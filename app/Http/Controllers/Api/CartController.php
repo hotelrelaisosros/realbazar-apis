@@ -40,8 +40,11 @@ class CartController extends Controller
             'product_id' => 'required|numeric|exists:products,id',
             'product_image_id' => 'nullable|numeric|exists:product_images,id',
             'variation_id' => 'nullable|numeric|exists:product_variations,id',
-            'bespoke_type' => 'nullable|numeric|exists:bespoke_customization_types,id',
-            'birth_stone' => 'nullable|numeric|exists:birth_stones,id',
+            'bespoke_type' => ['nullable', 'array'],
+            'bespoke_type.*' => ['numeric', 'exists:bespoke_customization_types,id'],
+
+            'birth_stone' => ['nullable', 'array'],
+            'birth_stone.*' => ['numeric', 'exists:birth_stones,id'],
             'gem_stone' => 'nullable|numeric|exists:gem_stones,id',
 
         ]);
@@ -63,6 +66,7 @@ class CartController extends Controller
         $variation = null;
         $productImage = null;
         $price_counter = $product->price - $product->discount_price;
+
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
             if ($productImage) {
@@ -79,17 +83,41 @@ class CartController extends Controller
         }
 
 
+        $bsp_type = [];
         if (!empty($validated["bespoke_type"])) {
-            $bsp_type = BespokeCustomizationType::find($validated["bespoke_type"]);
-            $price_counter +=  $bsp_type->price ?? 0;
+            if (is_string($validated["bespoke_type"])) {
+                $decoded = json_decode($validated["bespoke_type"]);
+                $validated['bespoke_type'] = $decoded ?: [];
+            }
+            foreach ($validated["bespoke_type"] as $bsp) {
+                $type = BespokeCustomizationType::find($bsp);
+                if ($type) {
+                    $bsp_type[] = $type;
+                    $price_counter += $type->price ?? 0;
+                }
+            }
         }
-        if (!empty($request["birth_stone"])) {
-            $birth_stone = BirthStone::find($request["birth_stone"]);
-            $price_counter +=  $birth_stone->price ?? 0;
+
+        $birth_stone = [];
+        if (!empty($validated["birth_stone"])) {
+            if (is_string($validated["birth_stone"])) {
+                $decoded = json_decode($validated["birth_stone"]);
+                $validated['birth_stone'] = $decoded ?: [];
+            }
+            foreach ($validated["birth_stone"] as $birstone) {
+                $stone = BirthStone::find($birstone);
+                if ($stone) {
+                    $birth_stone[] = $stone;
+                    $price_counter += $stone->price ?? 0;
+                }
+            }
         }
-        if (!empty($request["gem_stone"])) {
-            $gem_stone = GemStone::find($request["gem_stone"]);
-            $price_counter +=  $gem_stone->price ?? 0;
+        $gem_stone = null;
+        if (!empty($validated["gem_stone"])) {
+            $gem_stone = GemStone::find($validated["gem_stone"]);
+            if ($gem_stone) {
+                $price_counter += $gem_stone->price ?? 0;
+            }
         }
 
         if (!$product) {
@@ -141,7 +169,7 @@ class CartController extends Controller
 
             // Adding item to cart
             Cart::session($user)->add($cartObj);
-            // Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
+            Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
 
             // Create a cart item record in the database
             // $cartItem = CartItem::create([
@@ -300,6 +328,12 @@ class CartController extends Controller
     }
     public function showCart()
     {
+        if (!auth()->user()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated',
+            ], 401);
+        }
         try {
             $user = auth()->user()->id;
             // Retrieve all cart items for the user
@@ -347,16 +381,20 @@ class CartController extends Controller
                         'id' => $variations->id,
                         'price' => $variations->price,
                     ] : null,
-                    'bespoke_type' => $bespoke_type ? [
-                        'id' => $bespoke_type->id,
-                        'name' => $bespoke_type->name,
-                        'price' => $bespoke_type->price
-                    ] : null,
-                    'birth_stone' => $birth_stone ? [
-                        'id' => $birth_stone->id,
-                        'name' => $birth_stone->name,
-                        'price' => $birth_stone->price
-                    ] : null,
+                    'bespoke_types' => collect($bespoke_type)->map(function ($type) {
+                        return [
+                            'id' => $type->id,
+                            'name' => $type->name,
+                            'price' => $type->price,
+                        ];
+                    })->toArray(),
+                    'birth_stones' => collect($birth_stone)->map(function ($stone) {
+                        return [
+                            'id' => $stone->id,
+                            'name' => $stone->name,
+                            'price' => $stone->price,
+                        ];
+                    })->toArray(),
                     'gem_stone' => $gem_stone ? [
                         'id' => $gem_stone->id,
                         'name' => $gem_stone->type,

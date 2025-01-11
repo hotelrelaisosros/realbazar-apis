@@ -17,13 +17,18 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('order_id');
             $table->unsignedBigInteger('product_id');
+            $table->unsignedBigInteger('variant_id')->nullable();
+
             $table->string('subtotal')->nullable();
             $table->string('discount')->nullable();
             $table->string('qty')->nullable();
             $table->string('size')->nullable();
             $table->float('product_price')->nullable();
+            $table->float('customization_price')->nullable();
+
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
             $table->foreign('product_id')->references('id')->on('products');
+            $table->foreign('variant_id')->references('id')->on('product_variations');
 
             $table->unsignedBigInteger('metal_type_id')->nullable();
             $table->string('faceting_id')->nullable();
@@ -35,7 +40,7 @@ return new class extends Migration
             $table->unsignedBigInteger('prong_style_id')->nullable();
             $table->unsignedBigInteger('ring_size_id')->nullable();
             $table->string('bespoke_customization_types_id')->nullable();
-            $table->unsignedBigInteger('birth_stone_id')->nullable();
+            $table->string('birth_stone_id')->nullable();
             $table->unsignedBigInteger('gem_stone_id')->nullable();
             $table->unsignedBigInteger('gem_stone_color_id')->nullable();
 

@@ -38,7 +38,7 @@ gem shape
 //
 
 git add .
-git commit -m '32 commit'
+git commit -m '34 commit'
 git push -u origin main
 
 
@@ -50,7 +50,9 @@ git push -u origin main
 
 changes on admin panel
 
-put the variations tab 
-get the images under variation
 
-put the single image for the product so the product has one image for non rings
+put the images for the orders correct ones 
+put order details page complete 
+put websockets to handle emailing in stripe 
+put paid and unpaid orders on 
+show the pdfs of purchase receipts on admin panel / generate pdfs 

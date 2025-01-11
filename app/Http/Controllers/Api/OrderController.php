@@ -39,6 +39,37 @@ use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
+    public function get_user_orders($status = null)
+    {
+        // Check if the user is authenticated
+        if (!auth()->user()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User not found'
+            ], 401);
+        }
+
+
+        $order = Order::where('user_id', auth()->user()->id)
+            ->with(['user_orders.variation.product_images', 'user_orders.products.images', 'user_payments.payments', 'users'])
+            ->get();
+
+        // Return response based on the query result
+        if ($order->count()) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Order found2',
+                'orders' => OrderResource::collection($order)
+            ], 200);
+        } else {
+            return response()->json([
+                'status' => false,
+                'message' => 'Order not found',
+                'orders' => []
+            ], 404);
+        }
+    }
+
     protected function formatImageUrl($imagePath)
     {
         if (!str_starts_with($imagePath, 'http')) {
@@ -74,8 +105,8 @@ class OrderController extends Controller
                     if (isset($orders['pay_status']) && $orders['pay_status'] == 'unpaid') $order->pay_status = 'unpaid';
                     // $order->area = $orders['area'];
                     // $order->city = $orders['city'];
-                    // $order->gross_amount = $orders['gross_amount'];
-                    // $order->net_amount = $orders['net_amount'];
+                    $order->gross_amount = $orders['gross_amount'];
+                    $order->net_amount = $orders['net_amount'];
                     // $order->note = $orders['note'];
                     $order->save();
 
@@ -89,13 +120,13 @@ class OrderController extends Controller
                                 $order_product = new OrderProduct();
                                 $order_product->order_id = $order->id;
                                 $order_product->product_id = $product['id'];
+                                $order_product->variant_id = $product['variant_id'] ?? null;
+
                                 $order_product->qty = $product['product_selected_qty'];
                                 $order_product->size = $product['size'];
                                 $order_product->product_price = $product['product_price'];
-                                $order_product->subtotal = $product['product_selected_qty'] * $product['product_price'];
-                                $discount = $product_price->discount_price ? $product_price->discount_price * $product['product_selected_qty'] : 0;
 
-                                $order_product->discount = $discount;
+                                $price_counter = 0;
 
                                 //get product enums
                                 if (!empty($product["customizable"])) {
@@ -117,10 +148,44 @@ class OrderController extends Controller
                                     $order_product->gem_stone_color_id = $product["customizable"]["gem_stone_color_id"] ?? null;
 
                                     $order_product->engraved_text = $product["customizable"]["engraved_text"] ?? null;
+
+                                    if ($product["customizable"]["bespoke_customization_types_id"]) {
+                                        $bsp = json_decode($product["customizable"]["bespoke_customization_types_id"]);
+                                        $bespoke_customization_types = BespokeCustomizationType::whereIn('id', $bsp)->get();
+                                        foreach ($bespoke_customization_types as $bespoke_customization_type) {
+                                            $price_counter += $bespoke_customization_type->price;
+                                        }
+                                    }
+                                    if ($product["customizable"]["birth_stone_id"]) {
+                                        $b_stone = json_decode($product["customizable"]["birth_stone_id"]);
+                                        $b_stones = BirthStone::whereIn('id', $b_stone)->get();
+                                        foreach ($b_stones as $birth_stone) {  // Changed variable name for clarity
+                                            $price_counter += $birth_stone->price;
+                                        }
+                                    }
+                                    if ($product["customizable"]["gem_stone_id"]) {
+                                        $gem_stone = $product["customizable"]["gem_stone_id"];
+                                        $gem_stone = GemStone::where('id', $gem_stone)->first();
+                                        if ($gem_stone) {
+                                            $price_counter += $gem_stone->price;
+                                        }
+                                    }
+                                    $order_product->customization_price = $price_counter;
                                 }
 
+                                // danger function 3
+                                // only 1 ring will be purchased if it has the updates and the quantity is more than 1 will not be paid for 
+                                if ($product['product_selected_qty'] > 0) {
+                                    $order_product->subtotal = $price_counter > 0
+                                        ? $product['product_price'] + $order_product->customization_price
+                                        : $product['product_selected_qty'] * $product['product_price'];
+                                } else {
+                                    $order_product->subtotal = 0;
+                                }
 
+                                $discount = $product_price->discount_price ? $product_price->discount_price * $product['product_selected_qty'] : 0;
 
+                                $order_product->discount = $discount;
                                 $order_product->save();
                                 $total += ($product['product_selected_qty'] * $product['product_price']) - ($product_price->discount_price * $product['product_selected_qty']);
                             } else {

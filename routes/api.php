@@ -148,6 +148,10 @@ Route::post('refund/order', [Api\OrderController::class, 'orderRefund']);
 Route::post('status/change/refund/order', [Api\OrderController::class, 'orderRefundStatusChange']);
 Route::post('payment/inquiry', [Api\OrderController::class, 'paymentInquiry']);
 
+Route::get('get_user/order/{status?}', [Api\OrderController::class, 'get_user_orders'])->middleware('auth:api');
+
+
+
 //package
 Route::get('/package', [Api\PackageController::class, 'show']);
 Route::post('add/package', [Api\PackageController::class, 'add']);

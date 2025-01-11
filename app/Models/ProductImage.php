@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 use App\Models\ProductVariation;
+use App\Helpers\ImageHelper;
 
 class ProductImage extends Model
 {
@@ -19,5 +20,12 @@ class ProductImage extends Model
     public function variation()
     {
         return $this->belongsTo(ProductVariation::class, 'variant_id', 'id');
+    }
+
+
+    // danger function 2
+    public function getImageAttribute($value)
+    {
+        return ImageHelper::formatImageUrl($value);
     }
 }
