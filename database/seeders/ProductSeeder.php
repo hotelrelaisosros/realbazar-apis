@@ -2,6 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Enums\GemStoneFacting;
+use Illuminate\Support\Facades\DB;
+
 use App\Models\AccentStoneTypes;
 use App\Models\Category;
 use App\Models\Product;
@@ -347,5 +350,97 @@ class ProductSeeder extends Seeder
                 ]);
             }
         }
+
+
+
+        DB::table('gemstones')->insert([
+            [
+                'type' => 'M',
+                'carat' => 1.2,
+                'shape' => 'Round',
+                'dimension' => '5x5x3 mm',
+                'faceting' => GemStoneFacting::B->value,
+                'price' => 2500.50,
+                'gemstone_color_id' => 1,
+                'color' => 'Blue',
+                'clarity' => 'VVS1',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'type' => 'LGD',
+                'carat' => 2.5,
+                'shape' => 'Oval',
+                'dimension' => '7x5x3.5 mm',
+                'faceting' => GemStoneFacting::B->value,
+                'price' => 5000.75,
+                'gemstone_color_id' => 2,
+                'color' => 'Pink',
+                'clarity' => 'VS2',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'type' => 'M',
+                'carat' => 3.0,
+                'shape' => 'Square',
+                'dimension' => '6x6x4 mm',
+                'faceting' => GemStoneFacting::B->value,
+                'price' => 7500.00,
+                'gemstone_color_id' => 3,
+                'color' => 'Green',
+                'clarity' => 'SI1',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'type' => 'LGD',
+                'carat' => 1.8,
+                'shape' => 'Elongated Cushion',
+                'dimension' => '8x4x2.5 mm',
+                'faceting' => GemStoneFacting::B->value,
+                'price' => 3000.25,
+                'gemstone_color_id' => 4,
+                'color' => 'Yellow',
+                'clarity' => 'IF',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        ]);
+
+        DB::table('birth_stones')->insert([
+            [
+                'name' => 'Garnet',
+                'price' => 120.50,
+                'description' => 'A deep red gemstone associated with January.',
+                'image' => 'garnet.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'Amethyst',
+                'price' => 90.75,
+                'description' => 'A purple quartz associated with February.',
+                'image' => 'amethyst.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'Aquamarine',
+                'price' => 150.00,
+                'description' => 'A pale blue gemstone associated with March.',
+                'image' => 'aquamarine.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'Diamond',
+                'price' => 500.00,
+                'description' => 'A clear gemstone associated with April.',
+                'image' => 'diamond.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
     }
 }

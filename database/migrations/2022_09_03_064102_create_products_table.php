@@ -18,8 +18,8 @@ return new class extends Migration
             // $table->unsignedBigInteger('user_id')->nullable();
             $table->unsignedBigInteger('sub_category_id')->nullable();
             $table->string('title')->nullable();
-            $table->float('price')->nullable();
-            $table->float('discount_price')->nullable();
+            $table->float('price')->default(0.00);
+            $table->float('discount_price')->default(0.00)->nullable();
             $table->string('color')->nullable();
             $table->mediumText('desc')->nullable();
             $table->string('tags')->nullable();

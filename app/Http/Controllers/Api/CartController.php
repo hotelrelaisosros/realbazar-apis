@@ -67,6 +67,7 @@ class CartController extends Controller
         $productImage = null;
         $price_counter = $product->price - $product->discount_price;
 
+
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
             if ($productImage) {
@@ -136,7 +137,11 @@ class CartController extends Controller
 
         try {
 
-            $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
+            if ($variation->id == null || $variation->id == "") {
+                $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
+            } else {
+                $cartItemId = $isRing ? $variation->id . '-' . strtoupper(substr(uniqid(), -6)) : $variation->id;
+            }
 
             // Create the cart object
             if ($isRing) {
@@ -152,39 +157,98 @@ class CartController extends Controller
                 $models = [
                     'product' => $product,
                     'product_image' => $productImage,
-                    'variation' => $variation,
+                    'variation' => $variation ?? [],
                 ];
             }
+
             $cartObj = [
-                'id' => $cartItemId, // Use unique id for rings, just product id for non-rings
+                'id' => $cartItemId,
                 'name' => $product->title,
                 'price' => $price_counter,
                 'quantity' => 1,
-                'attributes' => $customizables, // Only rings will have attributes
+                'attributes' => $customizables,
                 'associatedModel' => $models,
             ];
 
             // Check if the product is already in the cart
-            Cart::session($user)->getContent();
+            Cart::session($user)->getContent(); // Unused, can be removed
 
             // Adding item to cart
             Cart::session($user)->add($cartObj);
             Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
 
-            // Create a cart item record in the database
-            // $cartItem = CartItem::create([
-            //     'user_id' => $user,
-            //     'product_id' => $product->id,
-            //     'name' => $product->title,
-            //     'price' => $product->price,
-            //     'quantity' => 1,
-            //     'attributes' =>  json_encode($customizables) ?? null,
-            // ]);
+            if ($variation->id == null || $variation->id == "") {
+                $existingItemNonRing = CartItem::where('user_id', $user)
+                    ->where('product_id', $product->id)
+                    ->first();
+                if ($existingItemNonRing) {
+                    DB::table('cart_items')
+                        ->where('id', $existingItemNonRing->id)
+                        ->increment('quantity', 1, ['price' => $price_counter * (1 + $existingItemNonRing->quantity)]);
+                } else {
+                    $cart_item = CartItem::create([
+                        'user_id' => $user,
+                        'cart_id' => $cartItemId,
+                        'product_id' => $product->id,
+                        'name' => $product->title,
+                        'price' => $price_counter,
+                        'quantity' => 1,
+                        'attributes' => json_encode($customizables),
+                        'customizables' => json_encode($models),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            } else {
+                $existingItemNonRing = CartItem::where('user_id', $user)
+                    ->where('variant_id', $variation->id)
+                    ->first();
 
-            // // Dispatch remove cart item after 48 hours (optional)
-            // RemoveCartItem::dispatch($user, $cartItem->id)->delay(now()->addHours(48));
+                $isRingNew = $existingItemNonRing && str_contains($existingItemNonRing->cart_id, "-");
 
-            return response()->json(['status' => true, 'Message' => 'Product added to cart'], 202);
+                if ($isRingNew) {
+                    // If the existing cart item has a "-" in the cart_id, create a new entry
+                    $cart_item = CartItem::create([
+                        'user_id' => $user,
+                        'cart_id' => $cartItemId,
+                        'product_id' => $product->id,
+                        'variant_id' => $request["variation_id"],
+                        'name' => $product->title,
+                        'price' => $price_counter,
+                        'quantity' => 1,
+                        'attributes' => json_encode($customizables),
+                        'customizables' => json_encode($models),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } elseif ($existingItemNonRing) {
+                    DB::table('cart_items')
+                        ->where('id', $existingItemNonRing->id)
+                        ->increment('quantity', 1, ['price' => $price_counter * (1 + $existingItemNonRing->quantity)]);
+                } else {
+                    // If no existing cart item, create a new one
+                    $cart_item = CartItem::create([
+                        'user_id' => $user,
+                        'cart_id' => $cartItemId,
+                        'product_id' => $product->id,
+                        'variant_id' => $request["variation_id"],
+                        'name' => $product->title,
+                        'price' => $price_counter,
+                        'quantity' => 1,
+                        'attributes' => json_encode($customizables),
+                        'customizables' => json_encode($models),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            // Dispatch remove cart item after 48 hours (optional)
+            if (isset($cart_item)) {
+                RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addSeconds(5));
+            }
+
+            return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item ?? $existingItemNonRing ?? []], 202);
         } catch (Exception $e) {
             return response()->json(['status' => false, 'Message' => $e->getMessage()], 500);
         }
@@ -286,47 +350,7 @@ class CartController extends Controller
         ];
     }
 
-    public function updateCart(Request $request)
-    {
-        $validated = Validator::make($request->all(), [
-            'cart_id' => 'required|string', // Unique cart ID for identifying the item
-            'quantity' => 'nullable|integer|min:1',
-        ]);
-
-
-        if ($validated->fails()) {
-            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validated->errors()], 422);
-        }
-        if (strpos($request->input('cart_id'), "-") !== false) {
-            return response()->json(['success' => false, 'message' => 'Cart item cannot be updated'], 404);
-        }
-        $userID = auth()->user()->id;
-        $cartId = $request->input('cart_id');
-        $quantity = $request->input('quantity');
-
-        $cartItem = Cart::session($userID)->get($cartId);
-        Log::debug('Current Cart Item:', ['cart_item' => $cartItem]);
-
-        if (!$cartItem) {
-            return response()->json(['success' => false, 'message' => 'Cart item not found'], 404);
-        }
-
-        if ($quantity) {
-            $updateData['quantity'] = [
-                'relative' => false,
-                'value' => $quantity,
-            ];
-        }
-
-        // Update the cart item
-        Cart::session($userID)->update($cartId, $updateData);
-
-        $updatedCartItem = Cart::session($userID)->get($cartId);
-        Log::debug('Updated Cart Item:', ['updated_cart_item' => $updatedCartItem]);
-
-        return response()->json(['success' => true, 'message' => 'Cart updated successfully', 'cart_item' => $updatedCartItem]);
-    }
-    public function showCart()
+    public function updateCartSession(Request $request)
     {
         if (!auth()->user()) {
             return response()->json([
@@ -334,21 +358,130 @@ class CartController extends Controller
                 'message' => 'User not authenticated',
             ], 401);
         }
+        $validated = Validator::make($request->all(), [
+            'cart_id' => 'required|string', // Unique cart ID for identifying the item
+            'quantity' => 'nullable|integer|min:1',
+        ]);
+
+        if ($validated->fails()) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validated->errors()], 422);
+        }
+
+        if (strpos($request->input('cart_id'), "-") !== false) {
+            return response()->json(['success' => false, 'message' => 'Cart item cannot be updated'], 404);
+        }
+
+        $userID = auth()->user()->id;
+        $cartId = $request->input('cart_id');
+        $quantity = $request->input('quantity');
+
+        // Check the cart item in the session
+        $cartItemSession = Cart::session($userID)->get($cartId);
+        Log::debug('Current Cart Item in Session:', ['cart_item' => $cartItemSession]);
+
+        if (!$cartItemSession) {
+            return response()->json(['success' => false, 'message' => 'Cart item not found in session'], 404);
+        }
+
+        // Prepare the update data
+        if ($quantity) {
+            $updateData['quantity'] = [
+                'relative' => false,
+                'value' => $quantity,
+            ];
+        }
+
+        // Update the cart item in the session
+        Cart::session($userID)->update($cartId, $updateData);
+
+        // Fetch the updated cart item from session
+        $updatedCartItemSession = Cart::session($userID)->get($cartId);
+        Log::debug('Updated Cart Item in Session:', ['updated_cart_item' => $updatedCartItemSession]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cart updated in session successfully',
+            'session' => $updatedCartItemSession,
+        ]);
+    }
+
+
+
+    public function updateCartTable(Request $request)
+    {
+        $validated = Validator::make($request->all(), [
+            'id' => 'required|numeric|exists:cart_items,id', // Unique cart ID for identifying the item
+            'cart_id' => 'required|string|exists:cart_items,cart_id', // Unique cart ID for identifying the item
+            'quantity' => 'nullable|integer|min:1',
+        ]);
+
+        if ($validated->fails()) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validated->errors()], 422);
+        }
+
+        if (strpos($request->input('cart_id'), "-") !== false) {
+            return response()->json(['success' => false, 'message' => 'Cart item cannot be updated'], 404);
+        }
+
+        $userID = auth()->user()->id;
+        $cartId = $request['cart_id'];
+        $quantity = $request['quantity'];
+
+        // Check the cart item in the database table
+        $cartItemTable = CartItem::where('user_id', $userID)
+            ->where('id', $request['id'])
+            ->where('cart_id', $cartId)
+            ->first();
+        Log::debug('Current Cart Item in Table:', ['cart_item' => $cartItemTable]);
+
+        if (str_contains($cartItemTable->cart_id, "-")) {
+            return response()->json(['success' => false, 'message' => 'Cart item cannot be updated  as it is customized product'], 404);
+        }
+        if (!$cartItemTable) {
+            return response()->json(['success' => false, 'message' => 'Cart item not found in table'], 404);
+        }
+
+        // Prepare the update data
+        if ($quantity) {
+            $cartItemTable->quantity = $quantity;
+        }
+
+        // Update the cart item in the database table
+        $cartItemTable->save();
+
+
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cart updated in table successfully',
+            'table' => $cartItemTable,
+        ]);
+    }
+
+    public function showCartSession()
+    {
+        if (!auth()->user()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated',
+            ], 401);
+        }
+
         try {
             $user = auth()->user()->id;
-            // Retrieve all cart items for the user
+            // Retrieve all cart items for the user from the session
             $cartItems = Cart::session($user)->getContent();
 
             if ($cartItems->isEmpty()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Cart is empty',
-                    'cart_items' => [],
+                    'message' => 'Cart is empty in the session',
+                    'cart_items_session' => [],
                 ]);
             }
 
-            // Format the cart data for response
-            $formattedCartItems = $cartItems->map(function ($item) {
+            // Format the cart data from the session
+            $formattedCartItemsSession = $cartItems->map(function ($item) {
                 $associatedModel = $item->associatedModel;
                 $product = $associatedModel['product'] ?? null;
                 $variations = $associatedModel['variation'] ?? null;
@@ -358,6 +491,7 @@ class CartController extends Controller
                 $bespoke_type = $associatedModel['bespoke_type'] ?? null;
                 $birth_stone = $associatedModel['birth_stone'] ?? null;
                 $gem_stone = $associatedModel['gem_stone'] ?? null;
+
                 return [
                     'cart_id' => $item->id, // Unique cart ID
                     'name' => $item->name,
@@ -405,22 +539,114 @@ class CartController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Cart retrieved successfully',
-                'cart_items' => $formattedCartItems,
-                'cart_total' => Cart::session($user)->getTotal(),
+                'message' => 'Cart retrieved from session successfully',
+                'cart_items_session' => $formattedCartItemsSession,
+                'cart_total_session' => Cart::session($user)->getTotal(),
             ]);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve cart',
+                'message' => 'Failed to retrieve cart from session',
                 'error' => $e->getMessage(),
             ], 500);
         }
     }
 
+    public function showCartTable()
+    {
+        if (!auth()->user()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated',
+            ], 401);
+        }
+
+        $user = auth()->user()->id;
+
+        // Retrieve all cart items for the user from the database
+        $cartItemsTable = CartItem::where('user_id', $user)->get();
+
+        if ($cartItemsTable->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Cart is empty in the table',
+                'cart_items_table' => [],
+            ]);
+        }
+
+        // Format the cart data from the table
+        $formattedCartItemsTable = $cartItemsTable->map(function ($item) {
+            $associatedModel = json_decode($item->customizables, true);
+
+            return [
+                'id' => $item->id,
+                'cart_id' => $item->cart_id,
+                'name' => $item->name,
+                'price' => $item->price,
+                'quantity' => $item->quantity,
+                'attributes' => json_decode($item->attributes, true),
+                'total' => $item->price * $item->quantity,
+                'user_id' => $item->user_id,
+                'product' => isset($associatedModel['product']) ? [
+                    'id' => $associatedModel['product']['id'] ?? null,
+                    'title' => $associatedModel['product']['title'] ?? null,
+                    'description' => $associatedModel['product']['desc'] ?? null,
+                    'price' => $associatedModel['product']['price'] ?? null,
+                    'discount' => $associatedModel['product']['discount_price'] ?? null,
+                ] : null,
+                'product_image' => isset($associatedModel['product_image']) ? [
+                    'id' => $associatedModel['product_image']['id'] ?? null,
+                    'image' => $associatedModel['product_image']['image'] ?? null,
+                ] : null,
+                'variation' => isset($associatedModel['variation']) ? [
+                    'id' => $associatedModel['variation']['id'] ?? null,
+                    'title' => $associatedModel['variation']['title'] ?? null,
+                    'size' => $associatedModel['variation']['size'] ?? null,
+                    'stock' => $associatedModel['variation']['stock'] ?? null,
+                    'price' => $associatedModel['variation']['price'] ?? null,
+                ] : null,
+                'bespoke_types' => isset($associatedModel['bespoke_type']) ? array_map(function ($type) {
+                    return [
+                        'id' => $type['id'] ?? null,
+                        'name' => $type['name'] ?? null,
+                        'price' => $type['price'] ?? null,
+                    ];
+                }, $associatedModel['bespoke_type']) : [],
+                'birth_stones' => isset($associatedModel['birth_stone']) ? array_map(function ($stone) {
+                    return [
+                        'id' => $stone['id'] ?? null,
+                        'name' => $stone['name'] ?? null,
+                        'price' => $stone['price'] ?? null,
+                        'image' => $stone['image'] ?? null,
+                    ];
+                }, $associatedModel['birth_stone']) : [],
+                'gem_stone' => isset($associatedModel['gem_stone']) ? [
+                    'id' => $associatedModel['gem_stone']['id'] ?? null,
+                    'type' => $associatedModel['gem_stone']['type'] ?? null,
+                    'carat' => $associatedModel['gem_stone']['carat'] ?? null,
+                    'price' => $associatedModel['gem_stone']['price'] ?? null,
+                    'color' => $associatedModel['gem_stone']['color'] ?? null,
+                    'clarity' => $associatedModel['gem_stone']['clarity'] ?? null,
+                ] : null,
+            ];
+        });
+
+        // Return the formatted response
+        return response()->json([
+            'success' => true,
+            'cart_items_table' => $formattedCartItemsTable,
+        ]);
+        // } catch (Exception $e) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Failed to retrieve cart from table',
+        //         'error' => $e->getMessage(),
+        //     ], 500);
+        // }
+    }
 
 
-    public function removeCart(Request $request)
+    public function removeCartSession(Request $request)
     {
         $validated = Validator::make($request->all(), [
             'cart_id' => 'required|string', // Unique cart ID for identifying the item
@@ -433,35 +659,89 @@ class CartController extends Controller
         $userID = auth()->user()->id;
         $cartId = $request->input('cart_id');
 
-        // Check if the cart item exists
-        $cartItem = Cart::session($userID)->get($cartId);
+        // Check if the cart item exists in the session
+        $cartItemSession = Cart::session($userID)->get($cartId);
 
-        if (!$cartItem) {
-            return response()->json(['success' => false, 'message' => 'Cart item not found'], 404);
+        if (!$cartItemSession) {
+            return response()->json(['success' => false, 'message' => 'Cart item not found in session'], 404);
         }
 
+        // Remove the cart item from the session
         Cart::session($userID)->remove($cartId);
 
-        return response()->json(['success' => true, 'message' => 'Cart item removed successfully']);
+        return response()->json(['success' => true, 'message' => 'Cart item removed from session successfully']);
+    }
+    public function removeCartTable(Request $request)
+    {
+        if (!auth()->user()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated',
+            ], 401);
+        }
+        $validated = Validator::make($request->all(), [
+            'id' => 'required|numeric|exists:cart_items,id', // Unique cart ID for identifying the item
+        ]);
+
+        if ($validated->fails()) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validated->errors()], 422);
+        }
+
+        $userID = auth()->user()->id;
+        $cartId = $request['id'];
+
+        // Check if the cart item exists in the database table
+        $cartItemTable = CartItem::where('user_id', $userID)
+            ->where('id', $cartId)
+            ->first();
+
+        if (!$cartItemTable) {
+            return response()->json(['success' => false, 'message' => 'Cart item not found in table'], 404);
+        }
+
+        // Remove the cart item from the database table
+        $cartItemTable->delete();
+
+        return response()->json(['success' => true, 'message' => 'Cart item removed from table successfully']);
     }
 
-
-    public function clearCart()
+    public function clearCartSession()
     {
         try {
             $userID = auth()->user()->id;
 
-            // Clear all cart items for the user
+            // Clear all cart items from the session for the user
             Cart::session($userID)->clear();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Cart cleared successfully',
+                'message' => 'Cart cleared from session successfully',
             ]);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to clear cart',
+                'message' => 'Failed to clear cart from session',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function clearCartTable()
+    {
+        try {
+            $userID = auth()->user()->id;
+
+            // Clear all cart items from the database table for the user
+            CartItem::where('user_id', $userID)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cart cleared from table successfully',
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to clear cart from table',
                 'error' => $e->getMessage(),
             ], 500);
         }

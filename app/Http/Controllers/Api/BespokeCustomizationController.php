@@ -102,7 +102,6 @@ class BespokeCustomizationController extends Controller
     }
     public function update(Request $request, $id)
     {
-        print_r($request->all());
 
         $BespokeCustomization = BespokeCustomization::find($id);
 
@@ -112,7 +111,6 @@ class BespokeCustomizationController extends Controller
                 'message' => 'BespokeCustomization not found!',
             ], 404);
         }
-        echo "hi";
 
         $validator = Validator::make($request->all(), [
             'name' => 'nullable|string',
@@ -129,7 +127,6 @@ class BespokeCustomizationController extends Controller
 
 
         if ($request->hasFile('image')) {
-            echo "File Name: " . $request->file('image')->getClientOriginalName();
             if (filter_var($BespokeCustomization->image, FILTER_VALIDATE_URL)) {
                 // Handle remote image replacement
                 $imagePath = $request->file('image')->store('step1/BespokeCustomizations', 'public');

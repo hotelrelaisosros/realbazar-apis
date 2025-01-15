@@ -17,6 +17,8 @@ return new class extends Migration
             $table->id(); // Auto-increment primary key
             $table->bigInteger('user_id')->unsigned();
             $table->bigInteger('product_id')->unsigned();
+            $table->bigInteger('variant_id')->unsigned()->nullable();
+            $table->string('cart_id');
             $table->string('name');
             $table->decimal('price', 10, 2); // Price of the product
             $table->integer('quantity')->default(1); // Quantity of the product
@@ -24,6 +26,7 @@ return new class extends Migration
             $table->json('customizables')->nullable(); // Store customizables as JSON
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
+            $table->foreign('variant_id')->references('id')->on('product_variations');
             $table->timestamps();
         });
     }

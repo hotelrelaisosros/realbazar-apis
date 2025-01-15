@@ -23,8 +23,8 @@ return new class extends Migration
             $table->string('discount')->nullable();
             $table->string('qty')->nullable();
             $table->string('size')->nullable();
-            $table->float('product_price')->nullable();
-            $table->float('customization_price')->nullable();
+            $table->float('product_price')->default(0.00);
+            $table->float('customization_price')->default(0.00);
 
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
             $table->foreign('product_id')->references('id')->on('products');

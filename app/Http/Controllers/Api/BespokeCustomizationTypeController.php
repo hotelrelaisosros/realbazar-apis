@@ -25,6 +25,25 @@ class BespokeCustomizationTypeController extends Controller
             'BespokeCustomizationTypes' => $BespokeCustomizationTypes,
         ], 200);
     }
+    public function by_bsp($id)
+    {
+        if (!$id)
+            return response()->json([
+                'message' => 'Please provide a customization id!',
+            ], 404);
+
+        if (!BespokeCustomization::find($id))
+            return response()->json([
+                'message' => 'This customization is not found!',
+            ], 404);
+        $BespokeCustomizationTypes = BespokeCustomizationType::where('bespoke_customization_id', $id)->get();
+        return response()->json([
+
+            'status' => true,
+            'message' => count($BespokeCustomizationTypes) > 0 ? 'BespokeCustomizationTypes found' : 'No BespokeCustomizationTypes found',
+            'BespokeCustomizationTypes' => $BespokeCustomizationTypes,
+        ], 200);
+    }
 
 
     public function store(Request $request)

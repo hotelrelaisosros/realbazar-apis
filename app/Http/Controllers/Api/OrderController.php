@@ -150,16 +150,21 @@ class OrderController extends Controller
                                     $order_product->engraved_text = $product["customizable"]["engraved_text"] ?? null;
 
                                     if ($product["customizable"]["bespoke_customization_types_id"]) {
-                                        $bsp = json_decode($product["customizable"]["bespoke_customization_types_id"]);
+                                        if (is_string($product["customizable"]["bespoke_customization_types_id"])) {
+                                            $bsp = json_decode($product["customizable"]["bespoke_customization_types_id"], true) ?: [];
+                                        }
                                         $bespoke_customization_types = BespokeCustomizationType::whereIn('id', $bsp)->get();
                                         foreach ($bespoke_customization_types as $bespoke_customization_type) {
                                             $price_counter += $bespoke_customization_type->price;
                                         }
                                     }
+
                                     if ($product["customizable"]["birth_stone_id"]) {
-                                        $b_stone = json_decode($product["customizable"]["birth_stone_id"]);
+                                        if (is_string($product["customizable"]["birth_stone_id"])) {
+                                            $b_stone = json_decode($product["customizable"]["birth_stone_id"], true) ?: [];
+                                        }
                                         $b_stones = BirthStone::whereIn('id', $b_stone)->get();
-                                        foreach ($b_stones as $birth_stone) {  // Changed variable name for clarity
+                                        foreach ($b_stones as $birth_stone) {
                                             $price_counter += $birth_stone->price;
                                         }
                                     }

@@ -286,6 +286,8 @@ Route::prefix('api/v1')->group(function () {
 
         Route::prefix('bespoke_customization_types')->group(function () {
             Route::get('/', [Api\BespokeCustomizationTypeController::class, 'index']);
+            Route::get('/child/{id}', [Api\BespokeCustomizationTypeController::class, 'by_bsp']);
+
             Route::get('{id}', [Api\BespokeCustomizationTypeController::class, 'show']);
             Route::post('/', [Api\BespokeCustomizationTypeController::class, 'store']);
             Route::put('{id}',  [Api\BespokeCustomizationTypeController::class, 'update']);
@@ -439,13 +441,21 @@ Route::group(['middleware' => ['auth:api']], function () {
 
     //only one ring can go to cart
     Route::prefix('cart')->group(function () {
-
         Route::post('/add-to-cart', [Api\CartController::class, 'addToCart']);
-        Route::post('/update-cart', [Api\CartController::class, 'updateCart']);
         Route::post('/update-cart-customization', [Api\CartController::class, 'updateCartCustomization']);
-        Route::post('/remove-cart', [Api\CartController::class, 'removeCart']);
-        Route::post('/clear-cart', [Api\CartController::class, 'clearCart']);
-        Route::get('/show-cart', [Api\CartController::class, 'showCart']);
+
+        Route::prefix('table')->group(function () {
+            Route::post('/update-cart', [Api\CartController::class, 'updateCartTable']);
+            Route::post('/remove-cart', [Api\CartController::class, 'removeCartTable']);
+            Route::post('/clear-cart', [Api\CartController::class, 'clearCartTable']);
+            Route::get('/show-cart', [Api\CartController::class, 'showCartTable']);
+        });
+        Route::prefix('session')->group(function () {
+            Route::post('/update-cart', [Api\CartController::class, 'updateCartSession']);
+            Route::post('/remove-cart', [Api\CartController::class, 'removeCartSession']);
+            Route::post('/clear-cart', [Api\CartController::class, 'clearCartSession']);
+            Route::get('/show-cart', [Api\CartController::class, 'showCartSession']);
+        });
     });
     Route::prefix('wishlist')->group(function () {
         Route::get('/view', [Api\WishListController::class, 'viewWishlist']);

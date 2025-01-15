@@ -20,7 +20,7 @@ return new class extends Migration
 
             $table->string('size')->nullable();
             $table->string('stock')->nullable();
-            $table->float('price')->nullable();
+            $table->float('price')->default(0.00)->nullable();
 
             $table->integer('metal_type_id')->nullable();
 

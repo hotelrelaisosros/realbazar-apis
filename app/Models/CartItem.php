@@ -16,6 +16,8 @@ class CartItem extends Model
         'price',
         'quantity',
         'attributes',
-        'customizables'
+        'customizables',
+        'variant_id',
+        'cart_id',
     ];
 }
