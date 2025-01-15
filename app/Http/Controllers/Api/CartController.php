@@ -67,7 +67,6 @@ class CartController extends Controller
         $productImage = null;
         $price_counter = $product->price - $product->discount_price;
 
-
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
             if ($productImage) {
@@ -83,9 +82,12 @@ class CartController extends Controller
             $price_counter +=  $variation->price ?? 0;
         }
 
+        $user = auth()->user()->id;
+        // Check if the product is a ring
+        $isRing =  Product::isRing($validated['product_id'])->exists();
 
         $bsp_type = [];
-        if (!empty($validated["bespoke_type"])) {
+        if (!empty($validated["bespoke_type"]) && $isRing) {
             if (is_string($validated["bespoke_type"])) {
                 $decoded = json_decode($validated["bespoke_type"]);
                 $validated['bespoke_type'] = $decoded ?: [];
@@ -100,7 +102,7 @@ class CartController extends Controller
         }
 
         $birth_stone = [];
-        if (!empty($validated["birth_stone"])) {
+        if (!empty($validated["birth_stone"])  && $isRing) {
             if (is_string($validated["birth_stone"])) {
                 $decoded = json_decode($validated["birth_stone"]);
                 $validated['birth_stone'] = $decoded ?: [];
@@ -114,7 +116,7 @@ class CartController extends Controller
             }
         }
         $gem_stone = null;
-        if (!empty($validated["gem_stone"])) {
+        if (!empty($validated["gem_stone"]) && $isRing) {
             $gem_stone = GemStone::find($validated["gem_stone"]);
             if ($gem_stone) {
                 $price_counter += $gem_stone->price ?? 0;
@@ -125,9 +127,6 @@ class CartController extends Controller
             return response()->json(['error' => 'Product not found'], 404);
         }
 
-        $user = auth()->user()->id;
-        // Check if the product is a ring
-        $isRing =  Product::isRing($validated['product_id'])->exists();
 
         $customizables = [];
 
@@ -169,6 +168,8 @@ class CartController extends Controller
                 'attributes' => $customizables,
                 'associatedModel' => $models,
             ];
+
+
 
             // Check if the product is already in the cart
             Cart::session($user)->getContent(); // Unused, can be removed
@@ -245,7 +246,7 @@ class CartController extends Controller
 
             // Dispatch remove cart item after 48 hours (optional)
             if (isset($cart_item)) {
-                RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addSeconds(5));
+                RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
             }
 
             return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item ?? $existingItemNonRing ?? []], 202);

@@ -20,7 +20,7 @@ return new class extends Migration
             $table->bigInteger('variant_id')->unsigned()->nullable();
             $table->string('cart_id');
             $table->string('name');
-            $table->decimal('price', 10, 2); // Price of the product
+            $table->float('price')->default(0.00);
             $table->integer('quantity')->default(1); // Quantity of the product
             $table->json('attributes')->nullable(); // Store attributes as JSON
             $table->json('customizables')->nullable(); // Store customizables as JSON
