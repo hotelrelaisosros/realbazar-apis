@@ -353,7 +353,7 @@ class ProductSeeder extends Seeder
 
 
 
-        DB::table('gemstones')->insert([
+        DB::table('gem_stones')->insert([
             [
                 'type' => 'M',
                 'carat' => 1.2,
