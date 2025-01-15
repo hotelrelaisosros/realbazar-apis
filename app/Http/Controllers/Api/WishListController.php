@@ -14,7 +14,10 @@ use App\Models\GemStone;
 use App\Models\BirthStone;
 use Illuminate\Support\Facades\Validator;
 use Exception;
-
+use Illuminate\Support\Facades\DB;
+use App\Models\CartItem;
+use App\Jobs\RemoveCartItem;
+use App\Models\Wishlist;
 
 class WishListController extends Controller
 {
@@ -56,8 +59,11 @@ class WishListController extends Controller
             'product_id' => 'required|numeric|exists:products,id',
             'product_image_id' => 'nullable|numeric|exists:product_images,id',
             'variation_id' => 'nullable|numeric|exists:product_variations,id',
-            'bespoke_type' => 'nullable|numeric|exists:bespoke_customization_types,id',
-            'birth_stone' => 'nullable|numeric|exists:birth_stones,id',
+            'bespoke_type' => ['nullable', 'array'],
+            'bespoke_type.*' => ['numeric', 'exists:bespoke_customization_types,id'],
+
+            'birth_stone' => ['nullable', 'array'],
+            'birth_stone.*' => ['numeric', 'exists:birth_stones,id'],
             'gem_stone' => 'nullable|numeric|exists:gem_stones,id',
 
         ]);
@@ -79,6 +85,7 @@ class WishListController extends Controller
         $variation = null;
         $productImage = null;
         $price_counter = $product->price - $product->discount_price;
+
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
             if ($productImage) {
@@ -94,18 +101,45 @@ class WishListController extends Controller
             $price_counter +=  $variation->price ?? 0;
         }
 
+        $user = auth()->user()->id;
+        // Check if the product is a ring
+        $isRing =  Product::isRing($validated['product_id'])->exists();
 
-        if (!empty($validated["bespoke_type"])) {
-            $bsp_type = BespokeCustomizationType::find($validated["bespoke_type"]);
-            $price_counter +=  $bsp_type->price ?? 0;
+        $bsp_type = [];
+        if (!empty($validated["bespoke_type"]) && $isRing) {
+            if (is_string($validated["bespoke_type"])) {
+                $decoded = json_decode($validated["bespoke_type"]);
+                $validated['bespoke_type'] = $decoded ?: [];
+            }
+            foreach ($validated["bespoke_type"] as $bsp) {
+                $type = BespokeCustomizationType::find($bsp);
+                if ($type) {
+                    $bsp_type[] = $type;
+                    $price_counter += $type->price ?? 0;
+                }
+            }
         }
-        if (!empty($request["birth_stone"])) {
-            $birth_stone = BirthStone::find($request["birth_stone"]);
-            $price_counter +=  $birth_stone->price ?? 0;
+
+        $birth_stone = [];
+        if (!empty($validated["birth_stone"])  && $isRing) {
+            if (is_string($validated["birth_stone"])) {
+                $decoded = json_decode($validated["birth_stone"]);
+                $validated['birth_stone'] = $decoded ?: [];
+            }
+            foreach ($validated["birth_stone"] as $birstone) {
+                $stone = BirthStone::find($birstone);
+                if ($stone) {
+                    $birth_stone[] = $stone;
+                    $price_counter += $stone->price ?? 0;
+                }
+            }
         }
-        if (!empty($request["gem_stone"])) {
-            $gem_stone = GemStone::find($request["gem_stone"]);
-            $price_counter +=  $gem_stone->price ?? 0;
+        $gem_stone = null;
+        if (!empty($validated["gem_stone"]) && $isRing) {
+            $gem_stone = GemStone::find($validated["gem_stone"]);
+            if ($gem_stone) {
+                $price_counter += $gem_stone->price ?? 0;
+            }
         }
 
         if (!$product) {
@@ -113,152 +147,244 @@ class WishListController extends Controller
         }
 
 
-        $user = auth()->user()->id;
-
-
-
-        // Check if the product is a ring
-        $isRing = Product::isRing($validated['product_id'])->exists();
-
         $customizables = [];
+
         if ($isRing) {
             $customizables = $this->getCustomizablesFromRequest($request);
         }
 
-        // Determine the wishlist item ID
-        $wishlistItemId = $isRing
-            ? $product->id . '-' . strtoupper(substr(uniqid(), -6))
-            : $product->id;
+        try {
 
+            if ($variation->id == null || $variation->id == "") {
+                $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
+            } else {
+                $cartItemId = $isRing ? $variation->id . '-' . strtoupper(substr(uniqid(), -6)) : $variation->id;
+            }
 
-        // Create the cart object
-        if ($isRing) {
-            $models =  [
-                'product' => $product,
-                'product_image' => $productImage,
-                'variation' => $variation,
-                'bespoke_type' => $bsp_type ?? null,
-                'birth_stone' => $birth_stone ?? null,
-                'gem_stone' => $gem_stone ?? null,
+            // Create the cart object
+            if ($isRing) {
+                $models =  [
+                    'product' => $product,
+                    'product_image' => $productImage,
+                    'variation' => $variation,
+                    'bespoke_type' => $bsp_type ?? null,
+                    'birth_stone' => $birth_stone ?? null,
+                    'gem_stone' => $gem_stone ?? null,
+                ];
+            } else {
+                $models = [
+                    'product' => $product,
+                    'product_image' => $productImage,
+                    'variation' => $variation ?? [],
+                ];
+            }
+
+            $cartObj = [
+                'id' => $cartItemId,
+                'name' => $product->title,
+                'price' => $price_counter,
+                'quantity' => 1,
+                'attributes' => $customizables,
+                'associatedModel' => $models,
             ];
-        } else {
-            $models = [
-                'product' => $product,
-                'product_image' => $productImage,
-                'variation' => $variation,
-            ];
+
+
+
+            // Check if the product is already in the cart
+            Cart::session($user)->getContent(); // Unused, can be removed
+
+            // Adding item to cart
+            Cart::session("wishlit_" . $user)->add($cartObj);
+            Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
+
+            if ($variation->id == null || $variation->id == "") {
+                $existingItemNonRing = Wishlist::where('user_id', $user)
+                    ->where('product_id', $product->id)
+                    ->first();
+                if ($existingItemNonRing) {
+                    DB::table('cart_items')
+                        ->where('id', $existingItemNonRing->id)
+                        ->increment('quantity', 1, ['price' => $price_counter * (1 + $existingItemNonRing->quantity)]);
+                } else {
+                    $cart_item = Wishlist::create([
+                        'user_id' => $user,
+                        'cart_id' => $cartItemId,
+                        'product_id' => $product->id,
+                        'name' => $product->title,
+                        'price' => $price_counter,
+                        'attributes' => json_encode($customizables),
+                        'customizables' => json_encode($models),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            } else {
+                $existingItemNonRing = Wishlist::where('user_id', $user)
+                    ->where('variant_id', $variation->id)
+                    ->first();
+
+                $isRingNew = $existingItemNonRing && str_contains($existingItemNonRing->cart_id, "-");
+
+                if ($isRingNew) {
+                    // If the existing cart item has a "-" in the cart_id, create a new entry
+                    $cart_item = Wishlist::create([
+                        'user_id' => $user,
+                        'cart_id' => $cartItemId,
+                        'product_id' => $product->id,
+                        'variant_id' => $request["variation_id"],
+                        'name' => $product->title,
+                        'price' => $price_counter,
+                        'attributes' => json_encode($customizables),
+                        'customizables' => json_encode($models),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } elseif ($existingItemNonRing) {
+                    DB::table('cart_items')
+                        ->where('id', $existingItemNonRing->id)
+                        ->increment('quantity', 1, ['price' => $price_counter * (1 + $existingItemNonRing->quantity)]);
+                } else {
+                    // If no existing cart item, create a new one
+                    $cart_item = Wishlist::create([
+                        'user_id' => $user,
+                        'cart_id' => $cartItemId,
+                        'product_id' => $product->id,
+                        'variant_id' => $request["variation_id"],
+                        'name' => $product->title,
+                        'price' => $price_counter,
+                        'quantity' => 1,
+                        'attributes' => json_encode($customizables),
+                        'customizables' => json_encode($models),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            // Dispatch remove cart item after 48 hours (optional)
+            if (isset($cart_item)) {
+                RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
+            }
+
+            return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item ?? $existingItemNonRing ?? []], 202);
+        } catch (Exception $e) {
+            return response()->json(['status' => false, 'Message' => $e->getMessage()], 500);
         }
-
-        // Check if the product is already in the wishlist
-        $existingWishlistItem = Cart::session("wishlist_$user")->getContent()->get($wishlistItemId);
-
-        if ($existingWishlistItem) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Product already in wishlist',
-            ]);
-        }
-
-        // Add the product to the wishlist
-        Cart::session("wishlist_$user")->add([
-            'id' => $wishlistItemId,
-            'name' => $product->title,
-            'price' => $price_counter,
-            'quantity' => 1,
-            'attributes' => $customizables,
-            //  'user_id' => auth()->user()->id,
-            'associatedModel' => $models,
-        ]);
-
-        Log::info("lola" . Cart::session("wishlist_$user")->getContent());
-        // Log::info('Raw Cart Session:', session()->get('cartalyst.cart'));
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Product added to wishlist successfully',
-        ]);
     }
-
 
     public function viewWishlist()
     {
-        try {
-            $user = auth()->user();
-
-            // Retrieve all wishlist items for the user
-            $wishlistItems = Cart::session("wishlist_$user->id")->getContent();
-
-            if ($wishlistItems->isEmpty()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Wishlist is empty',
-                    'wishlist_items' => [],
-                ]);
-            }
-
-            // Format the wishlist data for response
-            $formattedWishlistItems = $wishlistItems->map(function ($item) {
-                $associatedModel = $item->associatedModel;
-                $product = $associatedModel['product'] ?? null;
-                $productImage = $associatedModel['product_image'] ?? null;
-                $variations = $associatedModel['variation'] ?? null;
-
-                return [
-                    'wishlist_id' => $item->id, // Unique wishlist ID
-                    'name' => $item->name,
-                    'price' => $item->price,
-                    'quantity' => $item->quantity,
-                    'attributes' => $item->attributes, // Customizables
-                    'total' => $item->getPriceSum(),
-
-                    'product' => $product ? [
-                        'id' => $product->id,
-                        'title' => $product->title,
-                        'description' => $product->description,
-                        'price' => $product->price,
-                        'discount' => $product->discount->price,
-                    ] : null,
-                    'product_image' => $productImage ? [
-                        'id' => $productImage->id,
-                        'image' => $this->formatImageUrl($productImage->image),
-                    ] : null,
-                    'variation' => $variations ? [
-                        'id' => $variations->id,
-                        'price' => $variations->price,
-                    ] : null,
-                ];
-            });
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Wishlist retrieved successfully',
-                'wishlist_items' => $formattedWishlistItems,
-                'wishlist_count' => $formattedWishlistItems->count(),
-            ]);
-        } catch (Exception $e) {
+        if (!auth()->user()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve wishlist',
-                'error' => $e->getMessage(),
-            ], 500);
+                'message' => 'User not authenticated',
+            ], 401);
         }
+
+        $user = auth()->user()->id;
+
+        // Retrieve all cart items for the user from the database
+        $cartItemsTable = Wishlist::where('user_id', $user)->get();
+
+        if ($cartItemsTable->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Cart is empty in the table',
+                'cart_items_table' => [],
+            ]);
+        }
+
+        // Format the cart data from the table
+        $formattedCartItemsTable = $cartItemsTable->map(function ($item) {
+            $associatedModel = json_decode($item->customizables, true);
+
+            return [
+                'id' => $item->id,
+                'cart_id' => $item->cart_id,
+                'name' => $item->name,
+                'price' => $item->price,
+                'attributes' => json_decode($item->attributes, true),
+                'total' => $item->price * $item->quantity,
+                'user_id' => $item->user_id,
+                'product' => isset($associatedModel['product']) ? [
+                    'id' => $associatedModel['product']['id'] ?? null,
+                    'title' => $associatedModel['product']['title'] ?? null,
+                    'description' => $associatedModel['product']['desc'] ?? null,
+                    'price' => $associatedModel['product']['price'] ?? null,
+                    'discount' => $associatedModel['product']['discount_price'] ?? null,
+                ] : null,
+                'product_image' => isset($associatedModel['product_image']) ? [
+                    'id' => $associatedModel['product_image']['id'] ?? null,
+                    'image' => $associatedModel['product_image']['image'] ?? null,
+                ] : null,
+                'variation' => isset($associatedModel['variation']) ? [
+                    'id' => $associatedModel['variation']['id'] ?? null,
+                    'title' => $associatedModel['variation']['title'] ?? null,
+                    'size' => $associatedModel['variation']['size'] ?? null,
+                    'stock' => $associatedModel['variation']['stock'] ?? null,
+                    'price' => $associatedModel['variation']['price'] ?? null,
+                ] : null,
+                'bespoke_types' => isset($associatedModel['bespoke_type']) ? array_map(function ($type) {
+                    return [
+                        'id' => $type['id'] ?? null,
+                        'name' => $type['name'] ?? null,
+                        'price' => $type['price'] ?? null,
+                    ];
+                }, $associatedModel['bespoke_type']) : [],
+                'birth_stones' => isset($associatedModel['birth_stone']) ? array_map(function ($stone) {
+                    return [
+                        'id' => $stone['id'] ?? null,
+                        'name' => $stone['name'] ?? null,
+                        'price' => $stone['price'] ?? null,
+                        'image' => $stone['image'] ?? null,
+                    ];
+                }, $associatedModel['birth_stone']) : [],
+                'gem_stone' => isset($associatedModel['gem_stone']) ? [
+                    'id' => $associatedModel['gem_stone']['id'] ?? null,
+                    'type' => $associatedModel['gem_stone']['type'] ?? null,
+                    'carat' => $associatedModel['gem_stone']['carat'] ?? null,
+                    'price' => $associatedModel['gem_stone']['price'] ?? null,
+                    'color' => $associatedModel['gem_stone']['color'] ?? null,
+                    'clarity' => $associatedModel['gem_stone']['clarity'] ?? null,
+                ] : null,
+            ];
+        });
+
+        // Return the formatted response
+        return response()->json([
+            'success' => true,
+            'cart_items_table' => $formattedCartItemsTable,
+        ]);
+        // } catch (Exception $e) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Failed to retrieve cart from table',
+        //         'error' => $e->getMessage(),
+        //     ], 500);
+        // }
     }
+
     public function removeAllFromWishlist(Request $request)
     {
+        if (!auth()->user()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated',
+            ], 401);
+        }
         $userID = auth()->user()->id;
 
         // Retrieve all wishlist items for the user
-        $wishlistItems = Cart::session("wishlist_$userID")->getContent();
+        $wishlist = Wishlist::where('user_id', $userID)->get();
 
-        if ($wishlistItems->isEmpty()) {
+        if ($wishlist->isEmpty()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Wishlist is already empty',
             ]);
         }
 
-        // Remove all items from the wishlist
-        Cart::session("wishlist_$userID")->clear();
+        $wishlist->delete();
 
         return response()->json([
             'success' => true,
@@ -269,8 +395,14 @@ class WishListController extends Controller
 
     public function removeFromWishlist(Request $request)
     {
+        if (!auth()->user()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated',
+            ], 401);
+        }
         $validated = Validator::make($request->all(), [
-            'wishlist_id' => 'required|string', // Unique cart ID for identifying the item
+            'id' => 'required|numeric|exists:wishlist,id', // Unique cart ID for identifying the item
         ]);
 
         if ($validated->fails()) {
@@ -278,86 +410,70 @@ class WishListController extends Controller
         }
 
         $userID = auth()->user()->id;
-        $cartId = $request->input('wishlist_id');
+        $cartId = $request['id'];
 
-        $wishlistItem = Cart::session("wishlist_$userID")->get($cartId);
+        // Check if the cart item exists in the database table
+        $cartItemTable = Wishlist::where('user_id', $userID)
+            ->where('id', $cartId)
+            ->first();
 
-        if (!$wishlistItem) {
-            return response()->json(['success' => false, 'message' => 'Wishlist item not found'], 404);
+        if (!$cartItemTable) {
+            return response()->json(['success' => false, 'message' => 'Wishlist item not found in table'], 404);
         }
 
-        // Remove the item from the wishlist
-        Cart::session("wishlist_$userID")->remove($cartId);
+        // Remove the cart item from the database table
+        $cartItemTable->delete();
 
-        return response()->json(['success' => true, 'message' => 'Wishlist item removed successfully']);
+        return response()->json(['success' => true, 'message' => 'Wishlist item removed from table successfully']);
     }
 
 
 
     public function backToCart(Request $request)
     {
-        $valid = Validator::make($request->all(), [
-            'wishlist_id' => 'required|string',
-        ]);
+        if (!auth()->user()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User not authenticated',
+            ], 401);
+        }
 
+        $valid = Validator::make($request->all(), [
+            'wishlist_id' => 'required|numeric|exists:wishlist,id',
+        ]);
         if ($valid->fails()) {
             return response()->json(['status' => false, 'message' => $valid->errors()], 422);
         }
-
         $validated = $valid->validated();
         $user = auth()->user()->id;
-
-        // Check if the wishlist item exists
-        $wishlistItem = Cart::session("wishlist_$user")->get($validated['wishlist_id']);
-
+        $wishlistItem = Wishlist::where('id', $validated['wishlist_id'])->first();
         if (!$wishlistItem) {
             return response()->json([
                 'status' => false,
                 'message' => 'Product not found in wishlist',
             ], 404);
         }
-
-
-        if (str_contains($wishlistItem->id, "-")) {
-            if (Cart::session($user)->get($wishlistItem->id)) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Product already moved to cart as it cannot be moved again',
-                ], 404);
-            }
-        }
-        // if ($existingCartItem) {
-        //     Cart::session($user)->update($productId, array(
-        //         'quantity' =>  $wishlistItem->quantity + 1
-        //     ));
-        //     $message = 'Item updated in the cart successfully.';
-        // } else {
-        //     // If the product is not in the cart, add it to the cart
-        //     \Cart::session($userID)->add($product->id, $product->name, $product->price, $quantity);
-        //     $message = 'Item added to the cart successfully.';
-        // }
-
-        Cart::session($user)->add([
+        $cart = Cart::create([
             'id' => $wishlistItem->id,
+            'user_id' => $user,
+            'cart_id' => $wishlistItem->cart_id,
+            'product_id' => $wishlistItem->product_id,
+            'variant_id' => $wishlistItem->variant_id,
+            'customizables' => $wishlistItem->customizables,
             'name' => $wishlistItem->name,
             'price' => $wishlistItem->price,
-            'quantity' => $wishlistItem->quantity,
+            'initial_price' => $wishlistItem->price,
             'attributes' => $wishlistItem->attributes,
             'associatedModel' => $wishlistItem->associatedModel,
+            'quantity' => 1,
         ]);
 
-
-        $get_user = Cart::session($user)->getContent();
-
-        Cart::session("wishlist_$user")->remove($validated['wishlist_id']);
-        $wishlist = Cart::session("wishlist_$user")->getContent();
-
-
+        $wishlistItem->delete();
 
         return response()->json([
             'status' => true,
-            'cart ' => $get_user,
-            'wishlist' => $wishlist,
+            'cart' => $cart,
+            'wishlist' => $wishlistItem,
             'message' => 'Product moved to cart successfully',
         ]);
     }

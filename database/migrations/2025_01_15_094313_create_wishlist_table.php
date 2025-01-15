@@ -13,17 +13,14 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('cart_items', function (Blueprint $table) {
-            $table->id(); // Auto-increment primary key
+        Schema::create('wishlist', function (Blueprint $table) {
+            $table->id();
             $table->bigInteger('user_id')->unsigned();
             $table->bigInteger('product_id')->unsigned();
             $table->bigInteger('variant_id')->unsigned()->nullable();
             $table->string('cart_id');
             $table->string('name');
-            $table->float('initial_price')->default(0.00);
-
             $table->float('price')->default(0.00);
-            $table->integer('quantity')->default(1); // Quantity of the product
             $table->json('attributes')->nullable(); // Store attributes as JSON
             $table->json('customizables')->nullable(); // Store customizables as JSON
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
@@ -40,6 +37,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('cart');
+        Schema::dropIfExists('wishlist');
     }
 };

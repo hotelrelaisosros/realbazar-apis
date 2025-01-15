@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class CartItem extends Model
+class Wishlist extends Model
 {
     use HasFactory;
 
@@ -14,8 +14,6 @@ class CartItem extends Model
         'product_id',
         'name',
         'price',
-        'initial_price',
-        'quantity',
         'attributes',
         'customizables',
         'variant_id',
