@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Validator;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use App\Models\CartItem;
-use App\Jobs\RemoveCartItem;
+use App\Jobs\RemoveWishlistItem;
 use App\Models\Wishlist;
 
 class WishListController extends Controller
@@ -85,6 +85,11 @@ class WishListController extends Controller
         $variation = null;
         $productImage = null;
         $price_counter = $product->price - $product->discount_price;
+
+        $exists = Wishlist::where("product_id", $validated["product_id"])->where("user_id", auth()->user()->id)->where("variant_id", $validated["variation_id"])->first();
+        if ($exists) {
+            return response()->json(['status' => false, 'Message' => 'Product already in wishlist'], 409);
+        }
 
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
@@ -190,12 +195,7 @@ class WishListController extends Controller
 
 
 
-            // Check if the product is already in the cart
-            Cart::session($user)->getContent(); // Unused, can be removed
 
-            // Adding item to cart
-            Cart::session("wishlit_" . $user)->add($cartObj);
-            Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
 
             if ($variation->id == null || $variation->id == "") {
                 $existingItemNonRing = Wishlist::where('user_id', $user)
@@ -263,10 +263,10 @@ class WishListController extends Controller
 
             // Dispatch remove cart item after 48 hours (optional)
             if (isset($cart_item)) {
-                RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
+                RemoveWishlistItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
             }
 
-            return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item ?? $existingItemNonRing ?? []], 202);
+            return response()->json(['status' => true, 'Message' => 'Product added to wishlist', "wishlist" => $cart_item ?? $existingItemNonRing ?? []], 202);
         } catch (Exception $e) {
             return response()->json(['status' => false, 'Message' => $e->getMessage()], 500);
         }
@@ -353,8 +353,8 @@ class WishListController extends Controller
         // Return the formatted response
         return response()->json([
             'success' => true,
-            'cart_items_table' => $formattedCartItemsTable,
-        ]);
+            'wishlist' => $formattedCartItemsTable,
+        ], 200);
         // } catch (Exception $e) {
         //     return response()->json([
         //         'success' => false,
@@ -389,7 +389,7 @@ class WishListController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'All items removed from wishlist successfully',
-        ]);
+        ], 200);
     }
 
 
@@ -402,7 +402,7 @@ class WishListController extends Controller
             ], 401);
         }
         $validated = Validator::make($request->all(), [
-            'id' => 'required|numeric|exists:wishlist,id', // Unique cart ID for identifying the item
+            'id' => 'required|numeric|exists:wishlists,id', // Unique cart ID for identifying the item
         ]);
 
         if ($validated->fails()) {
@@ -439,7 +439,7 @@ class WishListController extends Controller
         }
 
         $valid = Validator::make($request->all(), [
-            'wishlist_id' => 'required|numeric|exists:wishlist,id',
+            'wishlist_id' => 'required|numeric|exists:wishlists,id',
         ]);
         if ($valid->fails()) {
             return response()->json(['status' => false, 'message' => $valid->errors()], 422);
@@ -453,7 +453,7 @@ class WishListController extends Controller
                 'message' => 'Product not found in wishlist',
             ], 404);
         }
-        $cart = Cart::create([
+        $cart = CartItem::create([
             'id' => $wishlistItem->id,
             'user_id' => $user,
             'cart_id' => $wishlistItem->cart_id,
