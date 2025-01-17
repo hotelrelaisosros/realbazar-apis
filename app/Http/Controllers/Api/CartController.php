@@ -260,7 +260,7 @@ class CartController extends Controller
                 RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
             }
 
-            return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item, $existingItemNonRing], 202);
+            return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item ?? $existingItemNonRing], 202);
         } catch (Exception $e) {
             return response()->json(['status' => false, 'Message' => $e->getMessage()], 500);
         }
