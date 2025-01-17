@@ -185,11 +185,6 @@ class CartController extends Controller
 
 
         // Check if the product is already in the cart
-        Cart::session($user)->getContent(); // Unused, can be removed
-
-        // Adding item to cart
-        Cart::session($user)->add($cartObj);
-        Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
 
         //non variant is not handled for ring 
 
