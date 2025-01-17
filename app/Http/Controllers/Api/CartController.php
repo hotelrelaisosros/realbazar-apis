@@ -265,7 +265,7 @@ class CartController extends Controller
 
         // Dispatch remove cart item after 48 hours (optional)
         if (isset($cart_item)) {
-            // RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
+            RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
         }
 
         return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item ?? $existingItemNonRing], 202);
