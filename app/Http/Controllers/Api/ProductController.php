@@ -1864,17 +1864,17 @@ class ProductController extends Controller
             return response()->json(['status' => false, 'Message' => 'Method is only for non customizable products']);
         }
 
-        $query = Product::where("sub_category_id", $request["sub_category_id"])->get();
+        $query = Product::with('images')->where("sub_category_id", $request["sub_category_id"])->get();
 
-        $data = $query->map(function ($variation) {
-            return [
-                'product' => new ProductNonRingResource($variation),
-            ];
-        });
+        // $data = $query->map(function ($variation) {
+        //     return [
+        //         'product' => new ProductNonRingResource($variation),
+        //     ];
+        // });
 
         return response()->json([
             'message' => 'Ring products',
-            'data' => $data,
+            'data' => $query,
         ], 200);
     }
 
