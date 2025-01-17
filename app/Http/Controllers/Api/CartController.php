@@ -159,28 +159,8 @@ class CartController extends Controller
                 'variation' => $variation ?? [],
             ];
         }
-        CartItem::create([
-            'user_id' => 1,
-            'cart_id' => 1,
-            'product_id' => 1,
-            'name' => "Asda",
-            'price' => 123123,
-            'initial_price' => 12312,
-            'quantity' => 1,
-            'attributes' => json_encode(["asdasd"]),
-            'customizables' => json_encode(["asdasd"]),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
 
-        $cartObj = [
-            'id' => $cartItemId,
-            'name' => $product->title,
-            'price' => $price_counter,
-            'quantity' => 1,
-            'attributes' => $customizables,
-            'associatedModel' => $models,
-        ];
+
 
 
 
@@ -265,7 +245,7 @@ class CartController extends Controller
 
         // Dispatch remove cart item after 48 hours (optional)
         if (isset($cart_item)) {
-            RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
+            // RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
         }
 
         return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item ?? $existingItemNonRing], 202);
