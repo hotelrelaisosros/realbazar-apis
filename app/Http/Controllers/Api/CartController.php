@@ -134,149 +134,149 @@ class CartController extends Controller
             $customizables = $this->getCustomizablesFromRequest($request);
         }
 
-        try {
+        // try {
 
-            if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
-                $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
-            } else {
-                $cartItemId = $isRing ? $request["variation_id"] . '-' . strtoupper(substr(uniqid(), -6)) : $request["variation_id"];
-            }
-
-            // Create the cart object
-            if ($isRing) {
-                $models =  [
-                    'product' => $product,
-                    'product_image' => $productImage,
-                    'variation' => $variation,
-                    'bespoke_type' => $bsp_type ?? null,
-                    'birth_stone' => $birth_stone ?? null,
-                    'gem_stone' => $gem_stone ?? null,
-                ];
-            } else {
-                $models = [
-                    'product' => $product,
-                    'product_image' => $productImage,
-                    'variation' => $variation ?? [],
-                ];
-            }
-            CartItem::create([
-                'user_id' => 1,
-                'cart_id' => 1,
-                'product_id' => 1,
-                'name' => "Asda",
-                'price' => 123123,
-                'initial_price' => 12312,
-                'quantity' => 1,
-                'attributes' => json_encode(["asdasd"]),
-                'customizables' => json_encode(["asdasd"]),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            $cartObj = [
-                'id' => $cartItemId,
-                'name' => $product->title,
-                'price' => $price_counter,
-                'quantity' => 1,
-                'attributes' => $customizables,
-                'associatedModel' => $models,
-            ];
-
-
-
-            // Check if the product is already in the cart
-            Cart::session($user)->getContent(); // Unused, can be removed
-
-            // Adding item to cart
-            Cart::session($user)->add($cartObj);
-            Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
-
-            //non variant is not handled for ring 
-
-            if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
-                $existingItemNonRing = CartItem::where('user_id', $user)
-                    ->where('product_id', $product->id)
-                    ->first();
-                if ($existingItemNonRing) {
-                    $cart = CartItem::find($existingItemNonRing->id);
-                    $cart->quantity += 1;
-                    $cart->price = $cart->quantity * $cart->initial_price;
-                    $cart->save();
-                } else {
-                    $cart_item = CartItem::create([
-                        'user_id' => $user,
-                        'cart_id' => $cartItemId,
-                        'product_id' => $product->id,
-                        'name' => $product->title,
-                        'price' => $price_counter,
-                        'initial_price' => $price_counter,
-                        'quantity' => 1,
-                        'attributes' => json_encode($customizables),
-                        'customizables' => json_encode($models),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            } else {
-
-                //with variations
-
-                $existingItemNonRing = CartItem::where('user_id', $user)
-                    ->where('variant_id', $variation->id)
-                    ->first();
-
-
-                $isRingNew = $existingItemNonRing && str_contains($existingItemNonRing->cart_id, "-");
-
-                if ($isRingNew) {
-                    // If the existing cart item has a "-" in the cart_id, create a new entry
-                    $cart_item = CartItem::create([
-                        'user_id' => $user,
-                        'cart_id' => $cartItemId,
-                        'product_id' => $product->id,
-                        'variant_id' => $request["variation_id"],
-                        'name' => $product->title,
-                        'price' => $price_counter,
-                        'initial_price' => $price_counter,
-                        'quantity' => 1,
-                        'attributes' => json_encode($customizables),
-                        'customizables' => json_encode($models),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                } elseif ($existingItemNonRing) {
-                    $cart = CartItem::find($existingItemNonRing->id);
-                    $cart->quantity += 1;
-                    $cart->price = $cart->quantity * $cart->initial_price;
-                    $cart->save();
-                } else {
-                    // If no existing cart item, create a new one
-                    $cart_item = CartItem::create([
-                        'user_id' => $user,
-                        'cart_id' => $cartItemId,
-                        'product_id' => $product->id,
-                        'variant_id' => $request["variation_id"],
-                        'initial_price' => $price_counter,
-                        'name' => $product->title,
-                        'price' => $price_counter,
-                        'quantity' => 1,
-                        'attributes' => json_encode($customizables),
-                        'customizables' => json_encode($models),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
-
-            // Dispatch remove cart item after 48 hours (optional)
-            if (isset($cart_item)) {
-                RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
-            }
-
-            return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item ?? $existingItemNonRing], 202);
-        } catch (Exception $e) {
-            return response()->json(['status' => false, 'Message' => $e->getMessage()], 500);
+        if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
+            $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
+        } else {
+            $cartItemId = $isRing ? $request["variation_id"] . '-' . strtoupper(substr(uniqid(), -6)) : $request["variation_id"];
         }
+
+        // Create the cart object
+        if ($isRing) {
+            $models =  [
+                'product' => $product,
+                'product_image' => $productImage,
+                'variation' => $variation,
+                'bespoke_type' => $bsp_type ?? null,
+                'birth_stone' => $birth_stone ?? null,
+                'gem_stone' => $gem_stone ?? null,
+            ];
+        } else {
+            $models = [
+                'product' => $product,
+                'product_image' => $productImage,
+                'variation' => $variation ?? [],
+            ];
+        }
+        CartItem::create([
+            'user_id' => 1,
+            'cart_id' => 1,
+            'product_id' => 1,
+            'name' => "Asda",
+            'price' => 123123,
+            'initial_price' => 12312,
+            'quantity' => 1,
+            'attributes' => json_encode(["asdasd"]),
+            'customizables' => json_encode(["asdasd"]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $cartObj = [
+            'id' => $cartItemId,
+            'name' => $product->title,
+            'price' => $price_counter,
+            'quantity' => 1,
+            'attributes' => $customizables,
+            'associatedModel' => $models,
+        ];
+
+
+
+        // Check if the product is already in the cart
+        Cart::session($user)->getContent(); // Unused, can be removed
+
+        // Adding item to cart
+        Cart::session($user)->add($cartObj);
+        Log::info('Cart in session:', ['cart_items' => Cart::session($user)->getContent()]);
+
+        //non variant is not handled for ring 
+
+        if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
+            $existingItemNonRing = CartItem::where('user_id', $user)
+                ->where('product_id', $product->id)
+                ->first();
+            if ($existingItemNonRing) {
+                $cart = CartItem::find($existingItemNonRing->id);
+                $cart->quantity += 1;
+                $cart->price = $cart->quantity * $cart->initial_price;
+                $cart->save();
+            } else {
+                $cart_item = CartItem::create([
+                    'user_id' => $user,
+                    'cart_id' => $cartItemId,
+                    'product_id' => $product->id,
+                    'name' => $product->title,
+                    'price' => $price_counter,
+                    'initial_price' => $price_counter,
+                    'quantity' => 1,
+                    'attributes' => json_encode($customizables),
+                    'customizables' => json_encode($models),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        } else {
+
+            //with variations
+
+            $existingItemNonRing = CartItem::where('user_id', $user)
+                ->where('variant_id', $variation->id)
+                ->first();
+
+
+            $isRingNew = $existingItemNonRing && str_contains($existingItemNonRing->cart_id, "-");
+
+            if ($isRingNew) {
+                // If the existing cart item has a "-" in the cart_id, create a new entry
+                $cart_item = CartItem::create([
+                    'user_id' => $user,
+                    'cart_id' => $cartItemId,
+                    'product_id' => $product->id,
+                    'variant_id' => $request["variation_id"],
+                    'name' => $product->title,
+                    'price' => $price_counter,
+                    'initial_price' => $price_counter,
+                    'quantity' => 1,
+                    'attributes' => json_encode($customizables),
+                    'customizables' => json_encode($models),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } elseif ($existingItemNonRing) {
+                $cart = CartItem::find($existingItemNonRing->id);
+                $cart->quantity += 1;
+                $cart->price = $cart->quantity * $cart->initial_price;
+                $cart->save();
+            } else {
+                // If no existing cart item, create a new one
+                $cart_item = CartItem::create([
+                    'user_id' => $user,
+                    'cart_id' => $cartItemId,
+                    'product_id' => $product->id,
+                    'variant_id' => $request["variation_id"],
+                    'initial_price' => $price_counter,
+                    'name' => $product->title,
+                    'price' => $price_counter,
+                    'quantity' => 1,
+                    'attributes' => json_encode($customizables),
+                    'customizables' => json_encode($models),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        // Dispatch remove cart item after 48 hours (optional)
+        if (isset($cart_item)) {
+            // RemoveCartItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
+        }
+
+        return response()->json(['status' => true, 'Message' => 'Product added to cart', "cart" => $cart_item ?? $existingItemNonRing], 202);
+        // } catch (Exception $e) {
+        //     return response()->json(['status' => false, 'Message' => $e->getMessage()], 500);
+        // }
     }
 
 
