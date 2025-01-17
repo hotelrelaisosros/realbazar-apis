@@ -159,6 +159,19 @@ class CartController extends Controller
                     'variation' => $variation ?? [],
                 ];
             }
+            CartItem::create([
+                'user_id' => 1,
+                'cart_id' => 1,
+                'product_id' => 1,
+                'name' => "Asda",
+                'price' => 123123,
+                'initial_price' => 12312,
+                'quantity' => 1,
+                'attributes' => json_encode(["asdasd"]),
+                'customizables' => json_encode(["asdasd"]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
             $cartObj = [
                 'id' => $cartItemId,
