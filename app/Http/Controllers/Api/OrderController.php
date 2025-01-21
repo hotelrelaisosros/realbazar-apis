@@ -105,8 +105,8 @@ class OrderController extends Controller
                     if (isset($orders['pay_status']) && $orders['pay_status'] == 'unpaid') $order->pay_status = 'unpaid';
                     // $order->area = $orders['area'];
                     // $order->city = $orders['city'];
-                    $order->gross_amount = $orders['gross_amount'];
-                    $order->net_amount = $orders['net_amount'];
+                    $order->gross_amount = $orders['gross_amount'] ?? 0;
+                    $order->net_amount = $orders['net_amount'] ?? 0;
                     // $order->note = $orders['note'];
                     $order->save();
 
