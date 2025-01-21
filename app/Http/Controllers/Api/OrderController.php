@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use Stripe\Checkout\Session;
+use Stripe\Customer;
+use Stripe\Stripe;
+
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\AppNotification;
@@ -255,6 +259,71 @@ class OrderController extends Controller
                 $appnot->save();
                 // NotiSend::sendNotif($user->device_token, '', $title, $message);
                 DB::commit();
+
+                if ($payment->payment_method == "credit_card") {
+
+                    Stripe::setApiKey(config('stripe.test.sk'));
+
+
+                    $order = Order::find($order->id);
+
+                    $orderProducts = $order->user_orders()->get();
+                    Customer::create([
+                        'email' => $order->email,
+                        'name'  => $order->customer_name,
+                        'phone' => $order->phone,
+                    ]);
+                    $lineItems = $orderProducts->map(function ($product) {
+                        return [
+                            'price_data' => [
+                                'currency'     => 'usd',
+                                'product_data' => [
+                                    'name'        => 'Product ' . $product->title,
+                                    'description' => 'Description',
+                                    $product->description,
+                                ],
+                                'unit_amount'  => $product->product_price * 100,
+                            ],
+                            'quantity'   => $product->qty,
+                        ];
+                    })->toArray();
+
+                    // Create the Stripe session
+                    $session = Session::create([
+                        'line_items'  => $lineItems,
+                        'mode'        => 'payment',
+                        'customer_email' => $order->email,
+                        'metadata' => [
+                            'order_number'    => $order->order_number,
+                            'customer_name'   => $order->customer_name,
+                            'phone'           => $order->phone,
+                            'delivery_address' => $order->delivery_address,
+                            'gross_amount'    => $order->gross_amount,
+                            'net_amount'      => $order->net_amount,
+                        ],
+                        'payment_intent_data' => [
+                            'metadata' => [
+                                'order_number'    => $order->order_number,
+                                'customer_name'   => $order->customer_name,
+                                'phone'           => $order->phone,
+                                'delivery_address' => $order->delivery_address,
+                                'gross_amount'    => $order->gross_amount,
+                                'net_amount'      => $order->net_amount,
+                            ],
+                        ],
+                        'success_url' => route('checkout', ['order' => $order->id]),
+                        'cancel_url'  => route('checkout', ['order' => $order->id]),
+                    ]);
+                    return response()->json([
+                        'status'        => true,
+                        'message'       => 'New Order Placed!',
+                        'order'         => $order,
+                        'order_id'      => $order->id,
+                        'payment_link'  => $session->url,
+                        'session_id'    => $session->id,
+                    ], 200);
+                }
+
                 return response()->json(['status' => true, 'Message' => 'New Order Placed!',  'order' => $order, 'order_id' => $order->id], 200);
             }
             // } catch (\Throwable $th) {
