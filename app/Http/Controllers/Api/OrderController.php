@@ -82,178 +82,186 @@ class OrderController extends Controller
     public function order(Request $request)
     {
         if (!empty($request->order)) {
-            try {
-                DB::beginTransaction();
-                $order_ids = [];
-                $total = 0;
-                $latestOrderId = 0;
-                $latestOrder = Order::orderBy('created_at', 'DESC')->first();
-                foreach ($request->order as $key => $orders) {
-                    if (is_object($orders)) $orders = $orders->toArray();
-                    $order = new Order();
+            // try {
+            DB::beginTransaction();
+            $order_ids = [];
+            $total = 0;
+            $latestOrderId = 0;
+            $latestOrder = Order::orderBy('created_at', 'DESC')->first();
+            foreach ($request->order as $key => $orders) {
+                if (is_object($orders)) $orders = $orders->toArray();
+                $order = new Order();
 
-                    $order->user_id = auth()->user()->id;
-                    $order->seller_id = $orders['sellerId'];
-                    if (empty($latestOrder)) $latestOrderId = 0;
-                    else $latestOrderId = $latestOrder->id;
-                    $order->order_number =  str_pad($latestOrderId + 1, 8, "0", STR_PAD_LEFT);
-                    $order->customer_name = $orders['name'];
-                    $order->email = auth()->user()->email;
-                    $order->phone = $orders['phone'];
-                    $order->delivery_address = $orders['address'];
-                    $order->order_date = Carbon::now();
-                    if (isset($orders['pay_status']) && $orders['pay_status'] == 'unpaid') $order->pay_status = 'unpaid';
-                    // $order->area = $orders['area'];
-                    // $order->city = $orders['city'];
-                    $order->gross_amount = $orders['gross_amount'] ?? 0;
-                    $order->net_amount = $orders['net_amount'] ?? 0;
-                    // $order->note = $orders['note'];
-                    $order->save();
+                $order->user_id = auth()->user()->id;
+                $order->seller_id = $orders['sellerId'];
+                if (empty($latestOrder)) $latestOrderId = 0;
+                else $latestOrderId = $latestOrder->id;
+                $order->order_number =  str_pad($latestOrderId + 1, 8, "0", STR_PAD_LEFT);
+                $order->customer_name = $orders['name'];
+                $order->email = auth()->user()->email;
+                $order->phone = $orders['phone'];
+                $order->delivery_address = $orders['address'];
+                $order->order_date = Carbon::now();
+                if (isset($orders['pay_status']) && $orders['pay_status'] == 'unpaid') $order->pay_status = 'unpaid';
+                // $order->area = $orders['area'];
+                // $order->city = $orders['city'];
+                $order->gross_amount = $orders['gross_amount'] ?? 0;
+                $order->net_amount = $orders['net_amount'] ?? 0;
+                // $order->note = $orders['note'];
+                $order->save();
 
-                    $order_ids[] = $order->id;
-                    if (!empty($orders['product'])) {
-                        foreach ($orders['product'] as $key => $product) {
-                            if (is_object($product)) $product = $product->toArray();
-                            $product_price = Product::find($product['id']);
-                            if ($product_price) {
+                $order_ids[] = $order->id;
+                if (!empty($orders['product'])) {
+                    foreach ($orders['product'] as $key => $product) {
+                        if (is_object($product)) $product = $product->toArray();
+                        $product_price = Product::find($product['id']);
+                        if ($product_price) {
 
-                                $order_product = new OrderProduct();
-                                $order_product->order_id = $order->id;
-                                $order_product->product_id = $product['id'];
-                                $order_product->variant_id = $product['variant_id'] ?? null;
+                            $order_product = new OrderProduct();
+                            $order_product->order_id = $order->id;
+                            $order_product->product_id = $product['id'];
+                            $order_product->variant_id = $product['variant_id'] ?? null;
 
-                                $order_product->qty = $product['product_selected_qty'];
-                                $order_product->size = $product['size'];
-                                $order_product->product_price = $product['product_price'];
+                            $order_product->qty = $product['product_selected_qty'];
+                            $order_product->size = $product['size'];
+                            $order_product->product_price = $product['product_price'];
 
-                                $price_counter = 0;
+                            $price_counter = 0;
 
-                                //get product enums
-                                if (!empty($product["customizable"])) {
+                            //get product enums
+                            if (!empty($product["customizable"])) {
 
-                                    // $order_product->metal_type_id = $product["customizable"]["metal_type_id"] ?? null;
-                                    $order_product->metal_type_karat = $product["customizable"]["metal_type_karat"] ?? null;
-                                    $order_product->faceting_id = $product["customizable"]["faceting_id"] ?? null;
-                                    $order_product->gem_shape_id = $product["customizable"]["gem_shape_id"] ?? null;
-                                    $order_product->band_width_id = $product["customizable"]["band_width_id"] ?? null;
-                                    $order_product->accent_stone_type_id = $product["customizable"]["accent_stone_type_id"] ?? null;
-                                    $order_product->setting_height_id = $product["customizable"]["setting_height_id"] ?? null;
-                                    $order_product->prong_style_id = $product["customizable"]["prong_style_id"] ?? null;
-                                    $order_product->ring_size_id = $product["customizable"]["ring_size_id"] ?? null;
-                                    $order_product->bespoke_customization_types_id = $product["customizable"]["bespoke_customization_types_id"] ?? null;
-                                    $order_product->birth_stone_id = $product["customizable"]["birth_stone_id"] ?? null;
+                                // $order_product->metal_type_id = $product["customizable"]["metal_type_id"] ?? null;
+                                $order_product->metal_type_karat = $product["customizable"]["metal_type_karat"] ?? null;
+                                $order_product->faceting_id = $product["customizable"]["faceting_id"] ?? null;
+                                $order_product->gem_shape_id = $product["customizable"]["gem_shape_id"] ?? null;
+                                $order_product->band_width_id = $product["customizable"]["band_width_id"] ?? null;
+                                $order_product->accent_stone_type_id = $product["customizable"]["accent_stone_type_id"] ?? null;
+                                $order_product->setting_height_id = $product["customizable"]["setting_height_id"] ?? null;
+                                $order_product->prong_style_id = $product["customizable"]["prong_style_id"] ?? null;
+                                $order_product->ring_size_id = $product["customizable"]["ring_size_id"] ?? null;
+                                $order_product->bespoke_customization_types_id = $product["customizable"]["bespoke_customization_types_id"] ?? null;
+                                $order_product->birth_stone_id = $product["customizable"]["birth_stone_id"] ?? null;
 
-                                    $order_product->gem_stone_id = $product["customizable"]["gem_stone_id"] ?? null;
+                                $order_product->gem_stone_id = $product["customizable"]["gem_stone_id"] ?? null;
 
-                                    $order_product->gem_stone_color_id = $product["customizable"]["gem_stone_color_id"] ?? null;
+                                $order_product->gem_stone_color_id = $product["customizable"]["gem_stone_color_id"] ?? null;
 
-                                    $order_product->engraved_text = $product["customizable"]["engraved_text"] ?? null;
-
-                                    if ($product["customizable"]["bespoke_customization_types_id"]) {
-                                        $bsp = $product["customizable"]["bespoke_customization_types_id"];
-                                        if (is_string($bsp)) {
-                                            $bsp = json_decode($bsp, true) ?: [];
-                                        }
+                                $order_product->engraved_text = $product["customizable"]["engraved_text"] ?? null;
+                                if (isset($product["customizable"]["bespoke_customization_types_id"])) {
+                                    $bsp = $product["customizable"]["bespoke_customization_types_id"];
+                                    if (is_string($bsp)) {
+                                        $decoded = json_decode($bsp, true);
+                                        $bsp = is_array($decoded) ? $decoded : [];
+                                    }
+                                    $bsp = is_array($bsp) ? array_unique(array_map('intval', $bsp)) : [];
+                                    if (!empty($bsp)) {
                                         $bespoke_customization_types = BespokeCustomizationType::whereIn('id', $bsp)->get();
                                         foreach ($bespoke_customization_types as $bespoke_customization_type) {
                                             $price_counter += $bespoke_customization_type->price;
                                         }
                                     }
+                                }
 
-                                    if ($product["customizable"]["birth_stone_id"]) {
-                                        $b_stone = $product["customizable"]["birth_stone_id"];
-                                        if (is_string($b_stone)) {
-                                            $b_stone = json_decode($b_stone, true) ?: [];
-                                        }
+                                if (isset($product["customizable"]["birth_stone_id"])) {
+                                    $b_stone = $product["customizable"]["birth_stone_id"];
+                                    if (is_string($b_stone)) {
+                                        $decoded = json_decode($b_stone, true);
+                                        $b_stone = is_array($decoded) ? $decoded : [];
+                                    }
+                                    $b_stone = is_array($b_stone) ? array_unique(array_map('intval', $b_stone)) : [];
+                                    if (!empty($b_stone)) {
                                         $b_stones = BirthStone::whereIn('id', $b_stone)->get();
                                         foreach ($b_stones as $birth_stone) {
                                             $price_counter += $birth_stone->price;
                                         }
                                     }
-                                    if ($product["customizable"]["gem_stone_id"]) {
-                                        $gem_stone = $product["customizable"]["gem_stone_id"];
-                                        $gem_stone = GemStone::where('id', $gem_stone)->first();
-                                        if ($gem_stone) {
-                                            $price_counter += $gem_stone->price;
-                                        }
+                                }
+
+                                if ($product["customizable"]["gem_stone_id"]) {
+                                    $gem_stone = $product["customizable"]["gem_stone_id"];
+                                    $gem_stone = GemStone::where('id', $gem_stone)->first();
+                                    if ($gem_stone) {
+                                        $price_counter += $gem_stone->price;
                                     }
-                                    $order_product->customization_price = $price_counter;
                                 }
-
-                                // danger function 3
-                                // only 1 ring will be purchased if it has the updates and the quantity is more than 1 will not be paid for 
-                                if ($product['product_selected_qty'] > 0) {
-                                    $order_product->subtotal = $price_counter > 0
-                                        ? $product['product_price'] + $order_product->customization_price
-                                        : $product['product_selected_qty'] * $product['product_price'];
-                                } else {
-                                    $order_product->subtotal = 0;
-                                }
-
-                                $discount = $product_price->discount_price ? $product_price->discount_price * $product['product_selected_qty'] : 0;
-
-                                $order_product->discount = $discount;
-                                $order_product->save();
-                                $total += ($product['product_selected_qty'] * $product['product_price']) - ($product_price->discount_price * $product['product_selected_qty']);
-                            } else {
-                                throw new Error("Product with ID {$product['id']} not found");
+                                $order_product->customization_price = $price_counter;
                             }
+
+                            // danger function 3
+                            // only 1 ring will be purchased if it has the updates and the quantity is more than 1 will not be paid for 
+                            if ($product['product_selected_qty'] > 0) {
+                                $order_product->subtotal = $price_counter > 0
+                                    ? $product['product_price'] + $order_product->customization_price
+                                    : $product['product_selected_qty'] * $product['product_price'];
+                            } else {
+                                $order_product->subtotal = 0;
+                            }
+
+                            $discount = $product_price->discount_price ? $product_price->discount_price * $product['product_selected_qty'] : 0;
+
+                            $order_product->discount = $discount;
+                            $order_product->save();
+                            $total += ($product['product_selected_qty'] * $product['product_price']) - ($product_price->discount_price * $product['product_selected_qty']);
+                        } else {
+                            throw new Error("Product with ID {$product['id']} not found");
                         }
-                    } else throw new Error("Order Request Failed!");
-                }
-                if ($total < 0) throw new Error("Order Request Failed because your total amount is 0!");
-                if ($request->pay_status == "unpaid") {
-                    $payment = new Payment();
-                    $payment->payment_method = $request->payment_method;
-                    $payment->total = $total;
-                    $payment->txt_refno = $request->txt_refno;
-                    $payment->response_code = $request->response_code;
-                    $payment->response_message = $request->response_message;
-                    $payment->save();
-                    $payment->orders()->sync($order_ids);
-                    // if ($request->response_code == 000 || $request->response_code == 0000) {
-                    $user = User::whereRelation('role', 'name', 'admin')->first();
-                    $title = 'NEW ORDER';
-                    $message = 'You have recieved new order';
-                    $appnot = new AppNotification();
-                    $appnot->user_id = $user->id;
-                    $appnot->notification = $message;
-                    $appnot->navigation = $title;
-                    $appnot->save();
-                    // NotiSend::sendNotif($user->device_token, '', $title, $message);
-                    DB::commit();
-                    return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
-                    // else {
-                    //     DB::commit();
-                    //     return response()->json(['status' => false, 'Message' => 'Order Failed!']);
-                    // }
-                } else {
-                    $payment = new Payment();
-                    $payment->payment_method = $request->payment_method;
-                    $payment->total = $total;
-                    $payment->txt_refno = "";
-                    $payment->response_code = "";
-                    $payment->response_message = "unpaid";
-                    $payment->save();
-                    $payment->orders()->sync($order_ids);
-                    // if ($request->response_code == 000 || $request->response_code == 0000) {
-                    $user = User::whereRelation('role', 'name', 'admin')->first();
-                    $title = 'NEW ORDER';
-                    $message = 'You have recieved new order';
-                    $appnot = new AppNotification();
-                    $appnot->user_id = $user->id;
-                    $appnot->notification = $message;
-                    $appnot->navigation = $title;
-                    $appnot->save();
-                    // NotiSend::sendNotif($user->device_token, '', $title, $message);
-                    DB::commit();
-                    return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
-                }
-            } catch (\Throwable $th) {
-                DB::rollBack();
-                // throw $th;
-                return response()->json(['status' => false, 'Message' => $th->getMessage(), 'request' => $request->all()]);
+                    }
+                } else throw new Error("Order Request Failed!");
             }
+            if ($total < 0) throw new Error("Order Request Failed because your total amount is 0!");
+            if ($request->pay_status == "unpaid") {
+                $payment = new Payment();
+                $payment->payment_method = $request->payment_method;
+                $payment->total = $total;
+                $payment->txt_refno = $request->txt_refno;
+                $payment->response_code = $request->response_code;
+                $payment->response_message = $request->response_message;
+                $payment->save();
+                $payment->orders()->sync($order_ids);
+                // if ($request->response_code == 000 || $request->response_code == 0000) {
+                $user = User::whereRelation('role', 'name', 'admin')->first();
+                $title = 'NEW ORDER';
+                $message = 'You have recieved new order';
+                $appnot = new AppNotification();
+                $appnot->user_id = $user->id;
+                $appnot->notification = $message;
+                $appnot->navigation = $title;
+                $appnot->save();
+                // NotiSend::sendNotif($user->device_token, '', $title, $message);
+                DB::commit();
+                return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
+                // else {
+                //     DB::commit();
+                //     return response()->json(['status' => false, 'Message' => 'Order Failed!']);
+                // }
+            } else {
+                $payment = new Payment();
+                $payment->payment_method = $request->payment_method;
+                $payment->total = $total;
+                $payment->txt_refno = "";
+                $payment->response_code = "";
+                $payment->response_message = "unpaid";
+                $payment->save();
+                $payment->orders()->sync($order_ids);
+                // if ($request->response_code == 000 || $request->response_code == 0000) {
+                $user = User::whereRelation('role', 'name', 'admin')->first();
+                $title = 'NEW ORDER';
+                $message = 'You have recieved new order';
+                $appnot = new AppNotification();
+                $appnot->user_id = $user->id;
+                $appnot->notification = $message;
+                $appnot->navigation = $title;
+                $appnot->save();
+                // NotiSend::sendNotif($user->device_token, '', $title, $message);
+                DB::commit();
+                return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
+            }
+            // } catch (\Throwable $th) {
+            //     DB::rollBack();
+            //     // throw $th;
+            //     return response()->json(['status' => false, 'Message' => $th->getMessage(), 'request' => $request->all()]);
+            // }
         } else return response()->json(['status' => false, 'Message' => 'Order Request Failed!', 'request' => $request->all()]);
     }
 
