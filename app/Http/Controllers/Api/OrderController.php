@@ -255,7 +255,7 @@ class OrderController extends Controller
                 $appnot->save();
                 // NotiSend::sendNotif($user->device_token, '', $title, $message);
                 DB::commit();
-                return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
+                return response()->json(['status' => true, 'Message' => 'New Order Placed!',  'order' => $order, 'order_id' => $order->id], 200);
             }
             // } catch (\Throwable $th) {
             //     DB::rollBack();
