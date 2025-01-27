@@ -86,11 +86,6 @@ class WishListController extends Controller
         $productImage = null;
         $price_counter = $product->price - $product->discount_price;
 
-        $exists = Wishlist::where("product_id", $validated["product_id"])->where("user_id", auth()->user()->id)->where("variant_id", $validated["variation_id"])->first();
-        if ($exists) {
-            return response()->json(['status' => false, 'Message' => 'Product already in wishlist'], 409);
-        }
-
         if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
             if ($productImage) {
@@ -158,118 +153,106 @@ class WishListController extends Controller
             $customizables = $this->getCustomizablesFromRequest($request);
         }
 
-        try {
+        // try {
 
-            if ($variation->id == null || $variation->id == "") {
-                $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
-            } else {
-                $cartItemId = $isRing ? $variation->id . '-' . strtoupper(substr(uniqid(), -6)) : $variation->id;
-            }
-
-            // Create the cart object
-            if ($isRing) {
-                $models =  [
-                    'product' => $product,
-                    'product_image' => $productImage,
-                    'variation' => $variation,
-                    'bespoke_type' => $bsp_type ?? null,
-                    'birth_stone' => $birth_stone ?? null,
-                    'gem_stone' => $gem_stone ?? null,
-                ];
-            } else {
-                $models = [
-                    'product' => $product,
-                    'product_image' => $productImage,
-                    'variation' => $variation ?? [],
-                ];
-            }
-
-            $cartObj = [
-                'id' => $cartItemId,
-                'name' => $product->title,
-                'price' => $price_counter,
-                'quantity' => 1,
-                'attributes' => $customizables,
-                'associatedModel' => $models,
-            ];
-
-
-
-
-
-            if ($variation->id == null || $variation->id == "") {
-                $existingItemNonRing = Wishlist::where('user_id', $user)
-                    ->where('product_id', $product->id)
-                    ->first();
-                if ($existingItemNonRing) {
-                    DB::table('cart_items')
-                        ->where('id', $existingItemNonRing->id)
-                        ->increment('quantity', 1, ['price' => $price_counter * (1 + $existingItemNonRing->quantity)]);
-                } else {
-                    $cart_item = Wishlist::create([
-                        'user_id' => $user,
-                        'cart_id' => $cartItemId,
-                        'product_id' => $product->id,
-                        'name' => $product->title,
-                        'price' => $price_counter,
-                        'attributes' => json_encode($customizables),
-                        'customizables' => json_encode($models),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            } else {
-                $existingItemNonRing = Wishlist::where('user_id', $user)
-                    ->where('variant_id', $variation->id)
-                    ->first();
-
-                $isRingNew = $existingItemNonRing && str_contains($existingItemNonRing->cart_id, "-");
-
-                if ($isRingNew) {
-                    // If the existing cart item has a "-" in the cart_id, create a new entry
-                    $cart_item = Wishlist::create([
-                        'user_id' => $user,
-                        'cart_id' => $cartItemId,
-                        'product_id' => $product->id,
-                        'variant_id' => $request["variation_id"],
-                        'name' => $product->title,
-                        'price' => $price_counter,
-                        'attributes' => json_encode($customizables),
-                        'customizables' => json_encode($models),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                } elseif ($existingItemNonRing) {
-                    DB::table('cart_items')
-                        ->where('id', $existingItemNonRing->id)
-                        ->increment('quantity', 1, ['price' => $price_counter * (1 + $existingItemNonRing->quantity)]);
-                } else {
-                    // If no existing cart item, create a new one
-                    $cart_item = Wishlist::create([
-                        'user_id' => $user,
-                        'cart_id' => $cartItemId,
-                        'product_id' => $product->id,
-                        'variant_id' => $request["variation_id"],
-                        'name' => $product->title,
-                        'price' => $price_counter,
-                        'quantity' => 1,
-                        'attributes' => json_encode($customizables),
-                        'customizables' => json_encode($models),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-            }
-
-            // Dispatch remove cart item after 48 hours (optional)
-            if (isset($cart_item)) {
-                RemoveWishlistItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
-            }
-
-            return response()->json(['status' => true, 'Message' => 'Product added to wishlist', "wishlist" => $cart_item ?? $existingItemNonRing ?? []], 202);
-        } catch (Exception $e) {
-            return response()->json(['status' => false, 'Message' => $e->getMessage()], 500);
+        if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
+            $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
+        } else {
+            $cartItemId = $isRing ? $request["variation_id"] . '-' . strtoupper(substr(uniqid(), -6)) : $request["variation_id"];
         }
+
+        // Create the cart object
+        if ($isRing) {
+            $models =  [
+                'product' => $product,
+                'product_image' => $productImage,
+                'variation' => $variation,
+                'bespoke_type' => $bsp_type ?? null,
+                'birth_stone' => $birth_stone ?? null,
+                'gem_stone' => $gem_stone ?? null,
+            ];
+        } else {
+            $models = [
+                'product' => $product,
+                'product_image' => $productImage,
+                'variation' => $variation ?? [],
+            ];
+        }
+
+        if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
+            $existingItemNonRing = Wishlist::where('user_id', $user)
+                ->where('product_id', $product->id)
+                ->first();
+            if ($existingItemNonRing) {
+                return response()->json(['status' => true, 'message' => 'Product already in wishlist'], 404);
+            } else {
+                $cart_item = Wishlist::create([
+                    'user_id' => $user,
+                    'cart_id' => $cartItemId,
+                    'product_id' => $product->id,
+                    'name' => $product->title,
+                    'price' => $price_counter,
+                    'attributes' => json_encode($customizables),
+                    'customizables' => json_encode($models),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        } else {
+
+            //with variations
+
+            $existingItemNonRing = Wishlist::where('user_id', $user)
+                ->where('variant_id', $variation->id)
+                ->first();
+
+
+            $isRingNew = $existingItemNonRing && str_contains($existingItemNonRing->cart_id, "-");
+
+            if ($isRingNew) {
+                // If the existing cart item has a "-" in the cart_id, create a new entry
+                $cart_item = Wishlist::create([
+                    'user_id' => $user,
+                    'cart_id' => $cartItemId,
+                    'product_id' => $product->id,
+                    'variant_id' => $request["variation_id"],
+                    'name' => $product->title,
+                    'price' => $price_counter,
+                    'initial_price' => $price_counter,
+                    'quantity' => 1,
+                    'attributes' => json_encode($customizables),
+                    'customizables' => json_encode($models),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } elseif ($existingItemNonRing) {
+                return response()->json(['status' => true, 'message' => 'Product already in wishlist'], 404);
+            } else {
+                // If no existing cart item, create a new one
+                $cart_item = Wishlist::create([
+                    'user_id' => $user,
+                    'cart_id' => $cartItemId,
+                    'product_id' => $product->id,
+                    'variant_id' => $request["variation_id"],
+                    'name' => $product->title,
+                    'price' => $price_counter,
+                    'attributes' => json_encode($customizables),
+                    'customizables' => json_encode($models),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        // Dispatch remove cart item after 48 hours (optional)
+        if (isset($cart_item)) {
+            // RemoveWishlistItem::dispatch($user, $cart_item->id)->delay(now()->addDays(5));
+        }
+
+        return response()->json(['status' => true, 'Message' => 'Product added to wishlist', "wishlist" => $cart_item ?? $existingItemNonRing ?? []], 202);
+        // } catch (Exception $e) {
+        //     return response()->json(['status' => false, 'Message' => $e->getMessage()], 500);
+        // }
     }
 
     public function viewWishlist()
@@ -289,8 +272,8 @@ class WishListController extends Controller
         if ($cartItemsTable->isEmpty()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Cart is empty in the table',
-                'cart_items_table' => [],
+                'message' => 'Wishlist is empty in the table',
+                'wishlist' => [],
             ]);
         }
 
@@ -304,7 +287,6 @@ class WishListController extends Controller
                 'name' => $item->name,
                 'price' => $item->price,
                 'attributes' => json_decode($item->attributes, true),
-                'total' => $item->price * $item->quantity,
                 'user_id' => $item->user_id,
                 'product' => isset($associatedModel['product']) ? [
                     'id' => $associatedModel['product']['id'] ?? null,
