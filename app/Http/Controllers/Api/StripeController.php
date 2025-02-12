@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Log;
 use Stripe\Charge;
 use Stripe\Refund;
 use Illuminate\Support\Facades\Validator;
+use Stripe\PaymentMethod;
 
 
 class StripeController extends Controller
@@ -128,6 +129,7 @@ class StripeController extends Controller
                 'net_amount'      => $order->net_amount,
             ],
             'payment_intent_data' => [
+                'setup_future_usage' => 'off_session',
                 'metadata' => [
                     'order_number'    => $order->order_number,
                     'customer_name'   => $order->customer_name,
@@ -185,6 +187,48 @@ class StripeController extends Controller
         } catch (\Exception $e) {
             Log::info("Error from StripeController test" . $e->getMessage());
             return response()->json(['status' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getUserCards()
+    {
+        Stripe::setApiKey(config('stripe.test.sk'));
+
+        if (!auth()->user()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User not found'
+            ], 401);
+        }
+
+        $stripeCustomerId = auth()->user()->stripe_id;
+
+        if ($stripeCustomerId == null) {
+            return response()->json(['error' => "User token does not exist"], 404);
+        }
+
+        try {
+            $customer = Customer::retrieve($stripeCustomerId);
+
+            if (!$customer || isset($customer->deleted)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Stripe customer does not exist'
+                ], 404);
+            }
+            echo $customer;
+
+            $paymentMethods = PaymentMethod::all([
+                'customer' => $stripeCustomerId,
+                'type' => 'card'
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'cards' => $paymentMethods->data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 

@@ -66,3 +66,13 @@ run a scedular for jobs on laravel host
 
 put paid and unpaid orders on 
 show the pdfs of purchase receipts on admin panel / generate pdfs 
+
+
+Hi @Adam She 
+Can you please create Below APIs.
+1. Order detail (Input as Order ID)
+2. Card List
+3. Delete Card
+3. Address List
+4. Delete Address
+5. Update Address

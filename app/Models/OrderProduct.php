@@ -19,4 +19,12 @@ class OrderProduct extends Model
     {
         return $this->belongsTo(ProductVariation::class, 'variant_id', 'id');
     }
+    public function product_images()
+    {
+        return $this->hasMany(ProductImage::class, 'product_id', 'product_id')
+            ->where(function ($query) {
+                $query->where('variant_id', $this->variant_id)
+                    ->orWhereNull('variant_id');
+            });
+    }
 }

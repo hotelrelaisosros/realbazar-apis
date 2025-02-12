@@ -140,6 +140,7 @@ Route::post('product/status/change', [Api\ProductController::class, 'productStat
 //order
 Route::post('order', [Api\OrderController::class, 'order'])->middleware('auth:api');
 Route::post('get/order', [Api\OrderController::class, 'show']);
+
 Route::get('users/order/{status?}', [Api\OrderController::class, 'userOrder']);
 Route::get('sellers/order/{status?}', [Api\OrderController::class, 'sellerOrder']);
 Route::post('status/change/order', [Api\OrderController::class, 'orderStatusChange']);
@@ -148,7 +149,8 @@ Route::post('refund/order', [Api\OrderController::class, 'orderRefund']);
 Route::post('status/change/refund/order', [Api\OrderController::class, 'orderRefundStatusChange']);
 Route::post('payment/inquiry', [Api\OrderController::class, 'paymentInquiry']);
 
-Route::get('get_user/order/{status?}', [Api\OrderController::class, 'get_user_orders'])->middleware('auth:api');
+Route::get('get_user/order', [Api\OrderController::class, 'get_user_orders'])->middleware('auth:api');
+Route::get('get_user/order/{orderId}', [Api\OrderController::class, 'get_user_orders_by_id'])->middleware('auth:api');
 
 
 
@@ -415,6 +417,8 @@ Route::post('/stripe/getAllTransaction',  [Api\StripeController::class, "getStri
 Route::post('/stripe/getSingleCharge',  [Api\StripeController::class, "getSingleCharge"]);
 Route::post('/stripe/getCustomerTransactions',  [Api\StripeController::class, "getCustomerTransactions"]);
 Route::post('/stripe/refundTransaction',  [Api\StripeController::class, "refundTransaction"]);
+Route::get('/stripe/getUserCards',  action: [Api\StripeController::class, "getUserCards"]);
+
 
 
 

@@ -41,6 +41,27 @@ class ImageHelper
             return $image;
         });
     }
+
+    public function formatProductImagesFromApiResponse($all_image)
+    {
+        return $all_image->map(function ($image) {
+            $image->image = self::formatImageUrl($image->image);
+            $image->small_image = self::formatImageUrl($image->small_image);
+
+            if (!empty($image->image_collection) && is_string($image->image_collection)) {
+                $imageCollection = json_decode($image->image_collection, true);
+                if (is_array($imageCollection)) {
+                    $image->image_collection = array_map([self::class, 'formatImageUrl'], $imageCollection);
+                }
+            } elseif (is_array($image->image_collection)) {
+                // If already an array, just format the URLs
+                $image->image_collection = array_map([self::class, 'formatImageUrl'], $image->image_collection);
+            }
+
+            return $image;
+        });
+    }
+
     public static function formatImageCollection($imageCollection)
     {
         if (!empty($imageCollection)) {

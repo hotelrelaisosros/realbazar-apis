@@ -16,11 +16,12 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('role_id')->nullable();
+            $table->string('stripe_id')->nullable();
             $table->string('username')->nullable();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
-            $table->string('email')->unique()->nullable();
-            $table->string('password')->nullable();
+            $table->string('email')->unique();
+            $table->string('password');
             $table->string('phone')->nullable();
             $table->string('address')->nullable();
             $table->string('address2')->nullable();
@@ -47,8 +48,9 @@ return new class extends Migration
             $table->string('response_code')->nullable();
             $table->string('response_message')->nullable();
             // $table->boolean('is_subscribed')->default(false)->nullable();
+            $table->string('address_id')->nullable();
 
-            $table->enum('payment_method', ['easypaisa', 'jazzcash'])->nullable();
+            $table->enum('payment_method', ['easypaisa', 'jazzcash', 'stripe'])->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();

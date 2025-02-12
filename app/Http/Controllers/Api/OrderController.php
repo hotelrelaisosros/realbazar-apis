@@ -25,7 +25,7 @@ use App\Models\ProngStyle;
 use App\Models\RingSize;
 use App\Models\GemStoneColor;
 use App\Models\GemStone;
-
+use App\Helpers\ImageHelper;
 
 use App\Models\ProductEnum;
 use Carbon\Carbon;
@@ -43,7 +43,7 @@ use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
-    public function get_user_orders($status = null)
+    public function get_user_orders()
     {
         // Check if the user is authenticated
         if (!auth()->user()) {
@@ -54,16 +54,64 @@ class OrderController extends Controller
         }
 
 
-        $order = Order::where('user_id', auth()->user()->id)
-            ->with(['user_orders.variation.product_images', 'user_orders.products.images', 'user_payments.payments', 'users'])
+        $orders = Order::where('user_id', auth()->user()->id)
+            ->with(['user_orders.variation', 'user_orders.products', 'user_orders.product_images', 'user_payments.payments'])
             ->get();
 
+        $helper = new ImageHelper;
+
+        $orders->each(function ($order) use ($helper) {
+            $order->user_orders->each(function ($userOrder) use ($helper) {
+                $userOrder->product_images = $helper->formatProductImagesFromApiResponse($userOrder->product_images);
+            });
+        });
+
         // Return response based on the query result
-        if ($order->count()) {
+        if ($orders->count()) {
             return response()->json([
                 'status' => true,
-                'message' => 'Order found2',
-                'orders' => OrderResource::collection($order)
+                'message' => 'Order found',
+                'orders' => OrderResource::collection($orders)
+            ], 200);
+        } else {
+            return response()->json([
+                'status' => false,
+                'message' => 'Order not found',
+                'orders' => []
+            ], 404);
+        }
+    }
+
+    public function get_user_orders_by_id($orderId)
+    {
+        // Check if the user is authenticated
+        if (!auth()->user()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User not found'
+            ], 401);
+        }
+
+
+        $orders = Order::where('user_id', auth()->user()->id)
+            ->with(['user_orders.variation', 'user_orders.products', 'user_orders.product_images', 'user_payments.payments'])
+            ->where('id', '=', $orderId)
+            ->get();
+
+        $helper = new ImageHelper;
+
+        $orders->each(function ($order) use ($helper) {
+            $order->user_orders->each(function ($userOrder) use ($helper) {
+                $userOrder->product_images = $helper->formatProductImagesFromApiResponse($userOrder->product_images);
+            });
+        });
+
+        // Return response based on the query result
+        if ($orders->count()) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Order found',
+                'orders' => OrderResource::collection($orders)
             ], 200);
         } else {
             return response()->json([
@@ -261,26 +309,36 @@ class OrderController extends Controller
                 DB::commit();
 
                 if ($payment->payment_method == "credit_card") {
-
                     Stripe::setApiKey(config('stripe.test.sk'));
 
-
                     $order = Order::find($order->id);
-
                     $orderProducts = $order->user_orders()->get();
-                    Customer::create([
-                        'email' => $order->email,
-                        'name'  => $order->customer_name,
-                        'phone' => $order->phone,
-                    ]);
+                    $user_id = auth()->user()->id;
+                    $user = User::find($user_id);
+                    // Check if user already has a Stripe customer ID
+                    if (!$user->stripe_id) {
+                        // Create a new Stripe customer
+                        $customer = Customer::create([
+                            'email' => $order->email,
+                            'name'  => $order->customer_name,
+                            'phone' => $order->phone,
+                        ]);
+
+                        // Save the customer ID to the users table
+                        $user->stripe_id = $customer->id;
+                        $user->save();
+                    } else {
+                        // Retrieve existing customer
+                        $customer = Customer::retrieve($user->stripe_id);
+                    }
+
                     $lineItems = $orderProducts->map(function ($product) {
                         return [
                             'price_data' => [
                                 'currency'     => 'usd',
                                 'product_data' => [
                                     'name'        => 'Product ' . $product->title,
-                                    'description' => 'Description',
-                                    $product->description,
+                                    'description' => $product->description,
                                 ],
                                 'unit_amount'  => $product->product_price * 100,
                             ],
@@ -292,8 +350,9 @@ class OrderController extends Controller
                     $session = Session::create([
                         'line_items'  => $lineItems,
                         'mode'        => 'payment',
-                        'customer_email' => $order->email,
+                        'customer'    => $customer->id, // Attach customer to session
                         'metadata' => [
+                            'customer_email' => $order->email,
                             'order_number'    => $order->order_number,
                             'customer_name'   => $order->customer_name,
                             'phone'           => $order->phone,
@@ -303,6 +362,7 @@ class OrderController extends Controller
                         ],
                         'payment_intent_data' => [
                             'metadata' => [
+                                'customer_email' => $order->email,
                                 'order_number'    => $order->order_number,
                                 'customer_name'   => $order->customer_name,
                                 'phone'           => $order->phone,
@@ -314,6 +374,7 @@ class OrderController extends Controller
                         'success_url' => route('checkout', ['order' => $order->id]),
                         'cancel_url'  => route('checkout', ['order' => $order->id]),
                     ]);
+
                     return response()->json([
                         'status'        => true,
                         'message'       => 'New Order Placed!',
@@ -323,7 +384,6 @@ class OrderController extends Controller
                         'session_id'    => $session->id,
                     ], 200);
                 }
-
                 return response()->json(['status' => true, 'Message' => 'New Order Placed!',  'order' => $order, 'order_id' => $order->id], 200);
             }
             // } catch (\Throwable $th) {
