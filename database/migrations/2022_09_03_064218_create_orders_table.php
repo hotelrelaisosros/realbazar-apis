@@ -17,6 +17,10 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable();
             $table->unsignedBigInteger('seller_id')->nullable();
+
+            $table->integer('cart_id');
+            $table->integer('address_id');
+
             $table->string('order_number')->nullable();
             $table->string('customer_name', 40)->nullable();
             $table->string('email')->nullable();

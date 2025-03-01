@@ -29,7 +29,7 @@ class ProductNonRingResource extends JsonResource
             'is_featured' => $this->is_featured,
             'is_trending' => $this->is_trending,
             'is_new_arrival' => $this->is_new_arrival,
-            'image' => $this->image,
+            // 'image' => $this->image,
             'user_id' => $this->user_id,
             'configurations' => $this->configurations,
             // 'created_at' => $this->created_at,

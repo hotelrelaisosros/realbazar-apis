@@ -18,6 +18,9 @@ use App\Models\ProductVariation;
 use App\Models\BespokeCustomizationType;
 use App\Models\GemStone;
 use App\Models\BirthStone;
+use App\Models\MetalKerat;
+use App\Models\Clarity;
+
 
 
 
@@ -42,10 +45,11 @@ class CartController extends Controller
             'variation_id' => 'nullable|numeric|exists:product_variations,id',
             'bespoke_type' => ['nullable', 'array'],
             'bespoke_type.*' => ['numeric', 'exists:bespoke_customization_types,id'],
-
             'birth_stone' => ['nullable', 'array'],
             'birth_stone.*' => ['numeric', 'exists:birth_stones,id'],
             'gem_stone' => 'nullable|numeric|exists:gem_stones,id',
+            'metal_kerat' => 'nullable|integer|exists:metal_kerate,id',
+            'clarity' => 'nullable|integer|exists:clarities,id',
 
         ]);
 
@@ -66,26 +70,52 @@ class CartController extends Controller
         $variation = null;
         $productImage = null;
         $price_counter = $product->price - $product->discount_price;
+        $initial_price = $price_counter;
 
-        if (!empty($validated["product_image_id"]) && empty($validated["variation_id"])) {
+
+        if (!empty($validated["product_image_id"])) {
             $productImage = ProductImage::find($validated["product_image_id"]);
-            if ($productImage) {
-                $productImage->image = $this->formatImageUrl($productImage->image);
-            }
-        } elseif (!empty($validated["product_image_id"]) && !empty($validated["variation_id"])) {
-            $variation = ProductVariation::find($validated["variation_id"]);
-            if ($variation) {
-                $productImage = ProductImage::where('id', $validated["product_image_id"])
-                    ->where('variant_id', $variation->id)
-                    ->first();
-            }
-            $price_counter +=  $variation->price ?? 0;
+        } elseif (!empty($validated["variation_id"])) {
+            $productImage = ProductImage::where('product_id', $validated["product_id"])
+                ->where('variant_id', $validated["variation_id"])->first();
+        } else {
+            $productImage = ProductImage::where('product_id', $validated["product_id"])
+                ->first();
         }
 
+        if ($productImage) {
+            $productImage->image = $this->formatImageUrl($productImage->image);
+        }
+
+        if (!empty($validated["variation_id"])) {
+            $variation = ProductVariation::find($validated["variation_id"]);
+            if ($variation) {
+                $price_counter +=  $variation->price ?? 0;
+                $initial_price += $variation->price ?? 0;
+            }
+        }
         $user = auth()->user()->id;
         // Check if the product is a ring
         $isRing =  Product::isRing($validated['product_id'])->exists();
 
+        $isBrac =  Product::isBrac($validated['product_id'])->exists();
+
+        $metal_kerat = null;
+        if (!empty($validated["metal_kerat"]) && $isBrac) {
+            $metal_kerat = MetalKerat::find($validated["metal_kerat"]);
+            if ($metal_kerat) {
+                $price_counter += $metal_kerat->price ?? 0;
+            }
+        }
+        $clarity  = null;
+        if (!empty($validated["clarity"]) && $isBrac) {
+            $clarity = Clarity::find($validated["clarity"]);
+            if ($clarity) {
+                $price_counter += $clarity->price ?? 0;
+            }
+        }
+
+        //
         $bsp_type = [];
         if (!empty($validated["bespoke_type"]) && $isRing) {
             if (is_string($validated["bespoke_type"])) {
@@ -100,7 +130,6 @@ class CartController extends Controller
                 }
             }
         }
-
         $birth_stone = [];
         if (!empty($validated["birth_stone"])  && $isRing) {
             if (is_string($validated["birth_stone"])) {
@@ -135,13 +164,21 @@ class CartController extends Controller
         }
 
         // try {
-
-        if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
-            $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
-        } else {
-            $cartItemId = $isRing ? $request["variation_id"] . '-' . strtoupper(substr(uniqid(), -6)) : $request["variation_id"];
+        if ($isRing) {
+            if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
+                $cartItemId = $isRing ? $product->id . '-' . strtoupper(substr(uniqid(), -6)) : $product->id;
+            } else {
+                $cartItemId = $isRing ? $request["variation_id"] . '-' . strtoupper(substr(uniqid(), -6)) : $request["variation_id"];
+            }
         }
 
+        if ($isBrac) {
+            if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
+                $cartItemId = $isBrac ? $product->id . '_' . strtoupper(substr(uniqid(), -6)) : $product->id;
+            } else {
+                $cartItemId = $isBrac ? $request["variation_id"] . '_' . strtoupper(substr(uniqid(), -6)) : $request["variation_id"];
+            }
+        }
         // Create the cart object
         if ($isRing) {
             $models =  [
@@ -151,6 +188,14 @@ class CartController extends Controller
                 'bespoke_type' => $bsp_type ?? null,
                 'birth_stone' => $birth_stone ?? null,
                 'gem_stone' => $gem_stone ?? null,
+            ];
+        } elseif ($isBrac) {
+            $models =  [
+                'product' => $product,
+                'product_image' => $productImage,
+                'variation' => $variation,
+                'kerat' => $metal_kerat ?? null,
+                'clarity' => $clarity ?? null,
             ];
         } else {
             $models = [
@@ -166,7 +211,7 @@ class CartController extends Controller
 
         // Check if the product is already in the cart
 
-        //non variant is not handled for ring 
+        //non variant is not handled for ring  and not for brac
 
         if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
             $existingItemNonRing = CartItem::where('user_id', $user)
@@ -184,7 +229,7 @@ class CartController extends Controller
                     'product_id' => $product->id,
                     'name' => $product->title,
                     'price' => $price_counter,
-                    'initial_price' => $price_counter,
+                    'initial_price' => $initial_price,
                     'quantity' => 1,
                     'attributes' => json_encode($customizables),
                     'customizables' => json_encode($models),
@@ -203,7 +248,9 @@ class CartController extends Controller
 
             $isRingNew = $existingItemNonRing && str_contains($existingItemNonRing->cart_id, "-");
 
-            if ($isRingNew) {
+            //here you can disable the brac quantity increase
+            $isBracNew = $existingItemNonRing && str_contains($existingItemNonRing->cart_id, "_");
+            if ($isBracNew) {
                 // If the existing cart item has a "-" in the cart_id, create a new entry
                 $cart_item = CartItem::create([
                     'user_id' => $user,
@@ -212,7 +259,23 @@ class CartController extends Controller
                     'variant_id' => $request["variation_id"],
                     'name' => $product->title,
                     'price' => $price_counter,
-                    'initial_price' => $price_counter,
+                    'initial_price' => $initial_price,
+                    'quantity' => 1,
+                    'attributes' => json_encode($customizables),
+                    'customizables' => json_encode($models),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } else if ($isRingNew) {
+                // If the existing cart item has a "-" in the cart_id, create a new entry
+                $cart_item = CartItem::create([
+                    'user_id' => $user,
+                    'cart_id' => $cartItemId,
+                    'product_id' => $product->id,
+                    'variant_id' => $request["variation_id"],
+                    'name' => $product->title,
+                    'price' => $price_counter,
+                    'initial_price' => $initial_price,
                     'quantity' => 1,
                     'attributes' => json_encode($customizables),
                     'customizables' => json_encode($models),
@@ -225,7 +288,7 @@ class CartController extends Controller
                 $cart->price = $cart->quantity * $cart->initial_price;
                 $cart->save();
             } else {
-                // If no existing cart item, create a new one
+                // If no existing cart item, create a new one for non ring 
                 $cart_item = CartItem::create([
                     'user_id' => $user,
                     'cart_id' => $cartItemId,
@@ -307,7 +370,7 @@ class CartController extends Controller
             ->where('cart_id', $cartId)
             ->first();
 
-        if (str_contains($cartItemTable->cart_id, "-")) {
+        if (str_contains($cartItemTable->cart_id, "-") || str_contains($cartItemTable->cart_id, "_")) {
             return response()->json(['success' => false, 'message' => 'Cart item cannot be updated  as it is customized product'], 404);
         }
         if (!$cartItemTable) {
@@ -362,6 +425,8 @@ class CartController extends Controller
                 'cart_id' => $item->cart_id,
                 'name' => $item->name,
                 'price' => $item->price,
+                'per_unit_price' => $item->initial_price,
+                "customization_price" => $item->price -  $item->initial_price,
                 'quantity' => $item->quantity,
                 'attributes' => json_decode($item->attributes, true),
                 'total' => $item->price * $item->quantity,
@@ -406,6 +471,16 @@ class CartController extends Controller
                     'price' => $associatedModel['gem_stone']['price'] ?? null,
                     'color' => $associatedModel['gem_stone']['color'] ?? null,
                     'clarity' => $associatedModel['gem_stone']['clarity'] ?? null,
+                ] : null,
+                'kerat' => isset($associatedModel['kerat']) ? [
+                    'id' => $associatedModel['kerat']['id'] ?? null,
+                    'kerat' => $associatedModel['kerat']['kerate'] ?? null,
+                    'price' => $associatedModel['kerat']['price'] ?? null,
+                ] : null,
+                'clarity' => isset($associatedModel['clarity']) ? [
+                    'id' => $associatedModel['clarity']['id'] ?? null,
+                    'clarity' => $associatedModel['clarity']['clarity'] ?? null,
+                    'price' => $associatedModel['clarity']['price'] ?? null,
                 ] : null,
             ];
         });

@@ -66,6 +66,19 @@ class Product extends Model
     {
         return $query->where('sub_category_id', 1);
     }
+
+    public function scopeIsBrac(Builder $query, $id)
+    {
+        return $query->where('sub_category_id', 2)->where('id', $id);
+    }
+
+
+
+
+    public function scopeIsAllBrac(Builder $query)
+    {
+        return $query->where('sub_category_id', 2);
+    }
     protected static function boot()
     {
         parent::boot();

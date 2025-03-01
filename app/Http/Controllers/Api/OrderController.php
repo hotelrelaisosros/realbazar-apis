@@ -8,7 +8,13 @@ use Stripe\Stripe;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
+use App\Http\Resources\OrderResourceFront;
+
 use App\Models\AppNotification;
+use App\Models\Adress;
+use App\Models\CartItem;
+
+
 use App\Models\Order;
 use App\Models\OrderProduct;
 use App\Models\Payment;
@@ -55,23 +61,18 @@ class OrderController extends Controller
 
 
         $orders = Order::where('user_id', auth()->user()->id)
-            ->with(['user_orders.variation', 'user_orders.products', 'user_orders.product_images', 'user_payments.payments'])
+            ->with(['user_orders.variation', 'user_orders.products', 'user_orders.product_images', 'user_payments.payments', 'addresses'])
             ->get();
 
-        $helper = new ImageHelper;
-
-        $orders->each(function ($order) use ($helper) {
-            $order->user_orders->each(function ($userOrder) use ($helper) {
-                $userOrder->product_images = $helper->formatProductImagesFromApiResponse($userOrder->product_images);
-            });
-        });
 
         // Return response based on the query result
         if ($orders->count()) {
             return response()->json([
                 'status' => true,
                 'message' => 'Order found',
-                'orders' => OrderResource::collection($orders)
+                'orders' => OrderResourceFront::collection($orders),
+                // 'orders' => $orders
+
             ], 200);
         } else {
             return response()->json([
@@ -98,20 +99,15 @@ class OrderController extends Controller
             ->where('id', '=', $orderId)
             ->get();
 
-        $helper = new ImageHelper;
 
-        $orders->each(function ($order) use ($helper) {
-            $order->user_orders->each(function ($userOrder) use ($helper) {
-                $userOrder->product_images = $helper->formatProductImagesFromApiResponse($userOrder->product_images);
-            });
-        });
 
         // Return response based on the query result
-        if ($orders->count()) {
+        if (!$orders->isEmpty()) {
             return response()->json([
                 'status' => true,
                 'message' => 'Order found',
-                'orders' => OrderResource::collection($orders)
+                'orders' => OrderResourceFront::collection($orders),
+
             ], 200);
         } else {
             return response()->json([
@@ -133,6 +129,16 @@ class OrderController extends Controller
 
     public function order(Request $request)
     {
+        $valid = Validator::make($request->all(), [
+            'order' => 'required|array|min:1',
+            'order.*.cart_ids' => 'required|array|min:1',
+            // 'order.*.cart_ids.*' => 'required|integer|exists:cart_items,id',
+            'order.*.address_id' => 'nullable|integer|exists:adresses,id',
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
+        }
         if (!empty($request->order)) {
             // try {
             DB::beginTransaction();
@@ -140,6 +146,7 @@ class OrderController extends Controller
             $total = 0;
             $latestOrderId = 0;
             $latestOrder = Order::orderBy('created_at', 'DESC')->first();
+            $user_id = auth()->user()->id;
             foreach ($request->order as $key => $orders) {
                 if (is_object($orders)) $orders = $orders->toArray();
                 $order = new Order();
@@ -152,114 +159,66 @@ class OrderController extends Controller
                 $order->customer_name = $orders['name'];
                 $order->email = auth()->user()->email;
                 $order->phone = $orders['phone'];
-                $order->delivery_address = $orders['address'];
+                // $order->delivery_address = $orders['address'];
                 $order->order_date = Carbon::now();
                 if (isset($orders['pay_status']) && $orders['pay_status'] == 'unpaid') $order->pay_status = 'unpaid';
-                // $order->area = $orders['area'];
-                // $order->city = $orders['city'];
+
                 $order->gross_amount = $orders['gross_amount'] ?? 0;
                 $order->net_amount = $orders['net_amount'] ?? 0;
                 // $order->note = $orders['note'];
+
+                if (isset($orders["address_id"]) && $orders["address_id"]) {
+                    $checkAddress = Adress::find($orders["address_id"])->where('user_id', $user_id);
+                    if ($checkAddress) {
+                        $order->address_id = $orders["address_id"];
+                    }
+                } elseif (isset($orders["address"])) {
+                    $address = new Adress();
+                    $address->user_id = auth()->user()->id; // `auth()->id()` is a cleaner way to get user ID
+                    $address->surname = $orders["address"]["surname"] ?? null;
+                    $address->first_name = $orders["address"]["first_name"] ?? null;
+                    $address->last_name = $orders["address"]["last_name"] ?? null;
+                    $address->address = $orders["address"]["address"] ?? null;
+                    $address->street_name = $orders["address"]["street_name"] ?? null;
+                    $address->street_number = $orders["address"]["street_number"] ?? null;
+                    $address->lat = $orders["address"]["lat"] ?? null;
+                    $address->lon = $orders["address"]["lon"] ?? null;
+                    $address->address2 = $orders["address"]["address2"] ?? null;
+                    $address->country = $orders["address"]["country"] ?? null;
+                    $address->city = $orders["address"]["city"] ?? null;
+                    $address->zip = $orders["address"]["zip"] ?? null;
+                    $address->phone = $orders["address"]["phone"] ?? null;
+                    $address->phone_country_code = $orders["address"]["phone_country_code"] ?? null;
+                    $address->is_primary = $orders["address"]["is_primary"] ?? false;
+                    $address->save();
+                    $order->address_id = $address->id;
+                }
+
                 $order->save();
 
                 $order_ids[] = $order->id;
-                if (!empty($orders['product'])) {
-                    foreach ($orders['product'] as $key => $product) {
-                        if (is_object($product)) $product = $product->toArray();
-                        $product_price = Product::find($product['id']);
-                        if ($product_price) {
+                $cartItems = CartItem::whereIn('id', $orders['cart_ids'])
+                    ->where('user_id', $user_id)
+                    ->get();
 
-                            $order_product = new OrderProduct();
-                            $order_product->order_id = $order->id;
-                            $order_product->product_id = $product['id'];
-                            $order_product->variant_id = $product['variant_id'] ?? null;
+                if ($cartItems->isEmpty()) {
+                    return response()->json(['status' => false, 'message' => 'Cart does not exist'], 404);
+                }
+                foreach ($cartItems as $cartItem) {
+                    $orderProduct = new OrderProduct();
+                    $orderProduct->order_id = $order->id;
+                    $orderProduct->cart_id = $cartItem->id;
+                    $orderProduct->product_id = $cartItem->product_id;
+                    $orderProduct->variant_id = $cartItem->variant_id ?? null;
+                    $orderProduct->qty = $cartItem->quantity;
+                    $orderProduct->product_price = $cartItem->price;
+                    $orderProduct->customizables = $cartItem->attributes;
+                    $total += $cartItem->price;
+                    $orderProduct->save();
+                }
 
-                            $order_product->qty = $product['product_selected_qty'];
-                            $order_product->size = $product['size'];
-                            $order_product->product_price = $product['product_price'];
-
-                            $price_counter = 0;
-
-                            //get product enums
-                            if (!empty($product["customizable"])) {
-
-                                // $order_product->metal_type_id = $product["customizable"]["metal_type_id"] ?? null;
-                                $order_product->metal_type_karat = $product["customizable"]["metal_type_karat"] ?? null;
-                                $order_product->faceting_id = $product["customizable"]["faceting_id"] ?? null;
-                                $order_product->gem_shape_id = $product["customizable"]["gem_shape_id"] ?? null;
-                                $order_product->band_width_id = $product["customizable"]["band_width_id"] ?? null;
-                                $order_product->accent_stone_type_id = $product["customizable"]["accent_stone_type_id"] ?? null;
-                                $order_product->setting_height_id = $product["customizable"]["setting_height_id"] ?? null;
-                                $order_product->prong_style_id = $product["customizable"]["prong_style_id"] ?? null;
-                                $order_product->ring_size_id = $product["customizable"]["ring_size_id"] ?? null;
-                                $order_product->bespoke_customization_types_id = $product["customizable"]["bespoke_customization_types_id"] ?? null;
-                                $order_product->birth_stone_id = $product["customizable"]["birth_stone_id"] ?? null;
-
-                                $order_product->gem_stone_id = $product["customizable"]["gem_stone_id"] ?? null;
-
-                                $order_product->gem_stone_color_id = $product["customizable"]["gem_stone_color_id"] ?? null;
-
-                                $order_product->engraved_text = $product["customizable"]["engraved_text"] ?? null;
-                                if (isset($product["customizable"]["bespoke_customization_types_id"])) {
-                                    $bsp = $product["customizable"]["bespoke_customization_types_id"];
-                                    if (is_string($bsp)) {
-                                        $decoded = json_decode($bsp, true);
-                                        $bsp = is_array($decoded) ? $decoded : [];
-                                    }
-                                    $bsp = is_array($bsp) ? array_unique(array_map('intval', $bsp)) : [];
-                                    if (!empty($bsp)) {
-                                        $bespoke_customization_types = BespokeCustomizationType::whereIn('id', $bsp)->get();
-                                        foreach ($bespoke_customization_types as $bespoke_customization_type) {
-                                            $price_counter += $bespoke_customization_type->price;
-                                        }
-                                    }
-                                }
-
-                                if (isset($product["customizable"]["birth_stone_id"])) {
-                                    $b_stone = $product["customizable"]["birth_stone_id"];
-                                    if (is_string($b_stone)) {
-                                        $decoded = json_decode($b_stone, true);
-                                        $b_stone = is_array($decoded) ? $decoded : [];
-                                    }
-                                    $b_stone = is_array($b_stone) ? array_unique(array_map('intval', $b_stone)) : [];
-                                    if (!empty($b_stone)) {
-                                        $b_stones = BirthStone::whereIn('id', $b_stone)->get();
-                                        foreach ($b_stones as $birth_stone) {
-                                            $price_counter += $birth_stone->price;
-                                        }
-                                    }
-                                }
-
-                                if ($product["customizable"]["gem_stone_id"]) {
-                                    $gem_stone = $product["customizable"]["gem_stone_id"];
-                                    $gem_stone = GemStone::where('id', $gem_stone)->first();
-                                    if ($gem_stone) {
-                                        $price_counter += $gem_stone->price;
-                                    }
-                                }
-                                $order_product->customization_price = $price_counter;
-                            }
-
-                            // danger function 3
-                            // only 1 ring will be purchased if it has the updates and the quantity is more than 1 will not be paid for 
-                            if ($product['product_selected_qty'] > 0) {
-                                $order_product->subtotal = $price_counter > 0
-                                    ? $product['product_price'] + $order_product->customization_price
-                                    : $product['product_selected_qty'] * $product['product_price'];
-                            } else {
-                                $order_product->subtotal = 0;
-                            }
-
-                            $discount = $product_price->discount_price ? $product_price->discount_price * $product['product_selected_qty'] : 0;
-
-                            $order_product->discount = $discount;
-                            $order_product->save();
-                            $total += ($product['product_selected_qty'] * $product['product_price']) - ($product_price->discount_price * $product['product_selected_qty']);
-                        } else {
-                            throw new Error("Product with ID {$product['id']} not found");
-                        }
-                    }
-                } else throw new Error("Order Request Failed!");
+                // **Delete Cart Items After Order**
+                // CartItem::whereIn('id', $orders['cart_ids'])->where('user_id', $user_id)->delete();
             }
             if ($total < 0) throw new Error("Order Request Failed because your total amount is 0!");
             if ($request->pay_status == "unpaid") {
@@ -311,8 +270,8 @@ class OrderController extends Controller
                 if ($payment->payment_method == "credit_card") {
                     Stripe::setApiKey(config('stripe.test.sk'));
 
-                    $order = Order::find($order->id);
-                    $orderProducts = $order->user_orders()->get();
+                    $order = Order::with(['user_orders.products'])->find($order->id);
+                    $orderProducts = $order->user_orders; // Fetch related order products
                     $user_id = auth()->user()->id;
                     $user = User::find($user_id);
                     // Check if user already has a Stripe customer ID
@@ -332,21 +291,22 @@ class OrderController extends Controller
                         $customer = Customer::retrieve($user->stripe_id);
                     }
 
-                    $lineItems = $orderProducts->map(function ($product) {
+                    // return response()->json([$orderProducts]);
+                    $lineItems = $orderProducts->map(function ($orderProduct) {
                         return [
                             'price_data' => [
                                 'currency'     => 'usd',
                                 'product_data' => [
-                                    'name'        => 'Product ' . $product->title,
-                                    'description' => $product->description,
+                                    'name'        => $orderProduct->products->title ?? 'Unknown Product',
+                                    'description' => $orderProduct->products->desc ?? 'No description available',
                                 ],
-                                'unit_amount'  => $product->product_price * 100,
+                                'unit_amount'  => intval($orderProduct->product_price * 100), // Convert to cents
                             ],
-                            'quantity'   => $product->qty,
+                            'quantity'   => intval($orderProduct->qty),
                         ];
                     })->toArray();
 
-                    // Create the Stripe session
+                    // // Create the Stripe session
                     $session = Session::create([
                         'line_items'  => $lineItems,
                         'mode'        => 'payment',

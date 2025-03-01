@@ -8,6 +8,7 @@ php artisan storage:link
 
 php artisan queue:work
 
+tasks
 
 
 php artisan queue:table
@@ -20,7 +21,7 @@ setup emails and their designs
 setup jobs on server to remove tokens 
 implement email you have left your cart open
 send product images with the product on frontend 
-
+Order invoices 
 
 
 //tables taking price

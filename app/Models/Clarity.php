@@ -5,12 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class MetalKerat extends Model
+class Clarity extends Model
 {
     use HasFactory;
-    protected $table = 'metal_kerate'; // Explicitly define the table name
-
-    protected $fillable = ['kerate', 'price', 'variant_id'];
+    protected $table = 'clarities';
+    protected $fillable = ['clarity', 'price', 'variant_id'];
     protected $hidden = [
         'created_at',
         'updated_at',

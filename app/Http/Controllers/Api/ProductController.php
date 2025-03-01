@@ -10,6 +10,9 @@ use App\Http\Resources\ProductImageResource;
 use App\Http\Resources\ProductNonRingResource;
 use App\Http\Resources\ProductWithImageResource;
 use App\Http\Resources\SubCategoryResource;
+use App\Http\Resources\MetalKarateResource;
+use App\Http\Resources\ClarityResource;
+
 
 
 use App\Models\AppNotification;
@@ -978,9 +981,6 @@ class ProductController extends Controller
         try {
             $this->check_product_exists($valid['product_id']);
 
-            $isRing =  Product::isRing($valid['product_id'])->exists();
-            $checkVariantExists = ProductImage::where('variant_id', $request['variant_id'])->first();
-
 
             // if ($checkVariantExists) {
             //     return response()->json(['status' => false, 'Message' => 'Image already exists for this variant'], 404);
@@ -1594,8 +1594,89 @@ class ProductController extends Controller
         return response()->json(['message' => 'Product enum updated successfully', 'data' => $productEnum], 200);
     }
 
+    public function getAllBracProducts(Request $request)
+    {
+
+        $query = ProductVariation::with(['product', 'product_images', 'metal_karate', 'clarity'])
+            ->whereHas('product', function ($q) {
+                $q->where('sub_category_id', 2);
+            });
+
+        $productVariations = $query->get();
+
+        //change this  as only one image record is needed for the variation
+        $data = $productVariations->map(function ($variation) {
+            return [
+                'product' => new ProductNonRingResource($variation->product),
+                'images' => $variation->product_images->count() > 0
+                    ? ProductImageResource::collection($variation->product_images)
+                    : [],
+                'variation' => new ProductVariationResource($variation),
+                'karate'  => MetalKarateResource::collection($variation->metal_karate),
+                'clarity' => ClarityResource::collection($variation->clarity),
+            ];
+        });
+
+        return response()->json([
+            'message' => 'Ring2 products',
+            'data' => $data,
+        ], 200);
+    }
+
+    public function showSpecificBracVarition(Request $request)
+    {
+        // Validate the input request
+        $valid = Validator::make($request->all(), [
+            'variant_id' => 'required|exists:product_variations,id',
+            // 'metal_type_id ' => 'required|exists:metal_type_categories,id',
+        ]);
+
+        if ($valid->fails()) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Validation errors',
+                'errors' => $valid->errors(),
+            ]);
+        }
+
+        $variation = ProductVariation::with(['product', 'product_images', 'metal_karate', 'clarity'])
+            ->where('id', $request["variant_id"])
+            ->whereHas('product', function ($q) {
+                $q->where('sub_category_id', 2);
+            })
+            ->first();
 
 
+
+        if (!$variation) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Variation not found',
+            ], 404);
+        }
+
+
+        $other_variants = ProductVariation::where('product_id', $variation->product_id)
+            ->with('product_images')
+            ->where('id', '!=', $variation->id)
+            ->get();
+        $variation->other_variants = $other_variants;
+
+        // Return the response
+        return response()->json([
+            'message' => 'Product with variations',
+            'data' => [
+                'product' => new ProductNonRingResource($variation->product),
+                'image' => $variation["product_images"]->count() > 0 ?  ProductImageResource::collection($variation["product_images"]) : [],
+
+                'varation' => ProductVariationResource::collection(collect([$variation])),
+                'karate'  => MetalKarateResource::collection($variation->metal_karate),
+                'clarity' => ClarityResource::collection($variation->clarity),
+                'other_vairants' => $other_variants,
+            ],
+            'is_variation' => true
+        ], 200);
+    }
 
     //step1
     public function getAllRingProducts(Request $request)
@@ -1746,6 +1827,7 @@ class ProductController extends Controller
         // }
 
         $other_variants = ProductVariation::where('product_id', $product_id)
+            ->with('product_images')
             ->where('id', '!=', $variation->id)
             ->get(['id', 'metal_type_id']);
         $variation->other_variants = $other_variants;
@@ -1815,6 +1897,8 @@ class ProductController extends Controller
             $product_id = $variation->product_id;
 
             $other_variants = ProductVariation::where('product_id', $product_id)
+                ->with('product_images')
+
                 ->where('id', '!=', $variantId)
                 ->get(['id']);
 

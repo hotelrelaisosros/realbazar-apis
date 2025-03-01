@@ -78,4 +78,14 @@ class ProductVariation extends Model
                 }
             });
     }
+
+
+    public function metal_karate()
+    {
+        return $this->hasMany(MetalKerat::class, 'variant_id', 'id');
+    }
+    public function clarity()
+    {
+        return $this->hasMany(Clarity::class, 'variant_id', 'id');
+    }
 }

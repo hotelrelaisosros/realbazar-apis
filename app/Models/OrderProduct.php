@@ -21,9 +21,9 @@ class OrderProduct extends Model
     }
     public function product_images()
     {
-        return $this->hasMany(ProductImage::class, 'product_id', 'product_id')
+        return $this->hasOne(ProductImage::class, 'product_id', 'product_id')
             ->where(function ($query) {
-                $query->where('variant_id', $this->variant_id)
+                $query->whereColumn('variant_id', 'variant_id')
                     ->orWhereNull('variant_id');
             });
     }

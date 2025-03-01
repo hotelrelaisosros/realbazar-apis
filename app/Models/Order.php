@@ -14,6 +14,7 @@ class Order extends Model
         return $this->hasMany(OrderProduct::class, 'order_id', 'id');
     }
 
+
     public function user_payments()
     {
         return $this->hasMany(OrderPayment::class, 'order_id', 'id');
@@ -37,4 +38,9 @@ class Order extends Model
     // {
     //     return sprintf("%05d", $this->id);
     // }
+
+    public function addresses()
+    {
+        return $this->belongsTo(Adress::class, 'address_id', 'id');
+    }
 }

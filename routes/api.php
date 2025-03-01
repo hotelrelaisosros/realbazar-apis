@@ -303,11 +303,28 @@ Route::prefix('api/v1')->group(function () {
             Route::post('{id}', [Api\MetalTypeCategoryController::class, 'update']);
             Route::delete('{id}', [Api\MetalTypeCategoryController::class, 'destroy']);
         });
-
+        Route::prefix('metal_karate')->group(function () {
+            Route::get('/', [Api\MetalKeratController::class, 'index']);
+            Route::post('/', [Api\MetalKeratController::class, 'store']);
+            Route::get('/{id}', [Api\MetalKeratController::class, 'show']);
+            Route::post('/update/{id}', [Api\MetalKeratController::class, 'update']);
+            Route::delete('/{id}', [Api\MetalKeratController::class, 'destroy']);
+        });
+        Route::prefix('clarity')->group(function () {
+            Route::get('/', [Api\ClarityController::class, 'index']);
+            Route::post('/', [Api\ClarityController::class, 'store']);
+            Route::get('/{id}', [Api\ClarityController::class, 'show']);
+            Route::post('/update/{id}', [Api\ClarityController::class, 'update']);
+            Route::delete('/{id}', [Api\ClarityController::class, 'destroy']);
+        });
 
         Route::prefix('front')->group(function () {
             Route::post('/step1', [Api\ProductController::class, 'getAllRingProducts']);
             Route::post('/step2', [Api\ProductController::class, 'showSpecificRingVarition']);
+        });
+        Route::prefix('brac')->group(function () {
+            Route::post('/step1', [Api\ProductController::class, 'getAllBracProducts']);
+            Route::post('/step2', [Api\ProductController::class, 'showSpecificBracVarition']);
         });
 
         Route::prefix('simple')->group(function () {
@@ -436,6 +453,16 @@ Route::post('payment/status', [Api\StripeController::class, "jazzcashPaymentStat
 
 
 //
+Route::group(['middleware' => ['auth:api']], function () {
+    Route::prefix('address')->group(function () {
+
+        Route::get('/', [Api\AddressController::class, 'getAllAddresses']);         // Get Primary Address
+        Route::get('/{id}', [Api\AddressController::class, 'getAddress']);  // Get All Addresses
+        Route::post('/', [Api\AddressController::class, 'createAddress']);     // Create New Address
+        Route::post('/update/{id}', [Api\AddressController::class, 'updateAddress']); // Update Address
+        Route::delete('/{id}', [Api\AddressController::class, 'deleteAddress']); // Delete Address
+    });
+});
 
 
 
@@ -473,6 +500,9 @@ Route::group(['middleware' => ['auth:api']], function () {
 Route::get('/enums/getFaceting', [Api\ProductEnumController::class, 'getFaceting'])->name('getfaceing');
 
 Route::get('/serve-file/{filename}', [Api\FileController::class, 'serveFile'])->name('serve-file');
+
+Route::get('/receipt/{id}', [Api\InvoiceController::class, 'generateReceipt'])->name('pdf.receipt');
+Route::get('/invoice/{id}', [Api\InvoiceController::class, 'generateInvoice'])->name('pdf.invoice');
 
     //ring_customizaiton_page1:
 

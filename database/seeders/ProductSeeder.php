@@ -13,7 +13,9 @@ use App\Models\BandWidth;
 use App\Models\BespokeCustomization;
 use App\Models\BespokeCustomizationType;
 use App\Models\BirthStone;
+use App\Models\Clarity;
 use App\Models\Gemshape;
+use App\Models\MetalKerat;
 use App\Models\MetalTypeCategory;
 use App\Models\ProductEnum;
 use App\Models\ProductVariation;
@@ -283,7 +285,7 @@ class ProductSeeder extends Seeder
 
         // Seed product variations
         foreach ($products as $productId) {
-            ProductVariation::create([
+            $var = ProductVariation::create([
                 'product_id' => $productId,
                 'title' => 'Variation for Product ' . $productId,
                 'size' => rand(5, 12) . 'mm',
@@ -292,6 +294,20 @@ class ProductSeeder extends Seeder
                 'metal_type_id' => $metalTypes[array_rand($metalTypes)],
                 'gem_shape_id' => $gemShapes[array_rand($gemShapes)],
             ]);
+
+            for ($i = 0; $i < 4; $i++) {
+                MetalKerat::create([
+                    'variant_id' => 5,
+                    'kerate' => rand(1, 10),
+                    'price' => rand(100, 1000),
+                ]);
+
+                Clarity::create([
+                    'variant_id' => 5,
+                    'clarity' => 'VVS' . rand(1, 2),
+                    'price' => rand(100, 1000),
+                ]);
+            }
         }
 
 
@@ -338,6 +354,7 @@ class ProductSeeder extends Seeder
                     'gem_shape_id' => 1,
                 ]);
 
+
                 // Create 1 image for each variation
                 ProductImage::create([
                     'product_id' => $product->id,
@@ -348,6 +365,20 @@ class ProductSeeder extends Seeder
                     'small_image' => "variation_{$variation->id}_small.jpg",
                     'type' => 'main',
                 ]);
+
+                for ($i = 0; $i < 4; $i++) {
+                    MetalKerat::create([
+                        'variant_id' => $var->id,
+                        'kerate' => rand(1, 10),
+                        'price' => rand(100, 1000),
+                    ]);
+
+                    Clarity::create([
+                        'variant_id' => 5,
+                        'clarity' => 'VVS' . rand(1, 2),
+                        'price' => rand(100, 1000),
+                    ]);
+                }
             }
         }
 
