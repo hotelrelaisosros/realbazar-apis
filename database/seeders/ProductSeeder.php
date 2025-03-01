@@ -368,7 +368,7 @@ class ProductSeeder extends Seeder
 
                 for ($i = 0; $i < 4; $i++) {
                     MetalKerat::create([
-                        'variant_id' => $var->id,
+                        'variant_id' => 5,
                         'kerate' => rand(1, 10),
                         'price' => rand(100, 1000),
                     ]);
