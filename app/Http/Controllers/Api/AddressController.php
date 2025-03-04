@@ -24,7 +24,7 @@ class AddressController extends Controller
 
         $address = $user->addresses()->where('id', $id)->get();
 
-        if ($address->isEmpty()) {
+        if (!$address) {
             return response()->json(['message' => 'Address not found'], 404);
         }
         return response()->json(['address' => $address]);
@@ -36,9 +36,10 @@ class AddressController extends Controller
         $user = auth()->user();
 
         $addresses = $user->addresses()->where('is_primary', true)->first();
-        if ($addresses->isEmpty()) {
+        if (!$addresses) { // Check if $address is null
             return response()->json(['message' => 'Address not found'], 404);
         }
+
         return response()->json(['addresses' => $addresses]);
     }
 
@@ -46,7 +47,6 @@ class AddressController extends Controller
     // ✅ Create New Address
     public function createAddress(Request $request)
     {
-        echo auth()->user()->id;
         $validator = Validator::make($request->all(), [
             'surname'           => 'required|string|max:255',
             'first_name'        => 'required|string|max:255',

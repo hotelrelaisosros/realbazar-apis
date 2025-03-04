@@ -23,9 +23,6 @@ use App\Models\Clarity;
 
 
 
-
-
-
 class CartController extends Controller
 {
     protected function formatImageUrl($imagePath)
