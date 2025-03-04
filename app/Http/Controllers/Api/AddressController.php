@@ -35,7 +35,9 @@ class AddressController extends Controller
     {
         $user = auth()->user();
 
-        $addresses = $user->addresses()->where('is_primary', true)->first();
+        $addresses = $user->addresses()
+            ->orderByDesc('is_primary')
+            ->get();
         if (!$addresses) { // Check if $address is null
             return response()->json(['message' => 'Address not found'], 404);
         }
