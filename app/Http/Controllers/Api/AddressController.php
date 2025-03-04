@@ -146,6 +146,7 @@ class AddressController extends Controller
     // ✅ Delete an Address
     public function deleteAddress($id)
     {
+        echo auth()->user()->id;
 
         $address = Adress::where('user_id', auth()->user()->id)->where('id', $id)->first();
 

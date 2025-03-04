@@ -453,16 +453,16 @@ Route::post('payment/status', [Api\StripeController::class, "jazzcashPaymentStat
 
 
 //
-// Route::group(['middleware' => ['auth:api']], function () {
-Route::prefix('address')->group(function () {
+Route::group(['middleware' => ['auth:api']], function () {
+    Route::prefix('address')->group(function () {
 
-    Route::get('/', [Api\AddressController::class, 'getAllAddresses']);         // Get Primary Address
-    Route::get('/{id}', [Api\AddressController::class, 'getAddress']);  // Get All Addresses
-    Route::post('/', [Api\AddressController::class, 'createAddress']);     // Create New Address
-    Route::post('/update/{id}', [Api\AddressController::class, 'updateAddress']); // Update Address
-    Route::delete('/{id}', [Api\AddressController::class, 'deleteAddress']); // Delete Address
+        Route::get('/', [Api\AddressController::class, 'getAllAddresses']);         // Get Primary Address
+        Route::get('/{id}', [Api\AddressController::class, 'getAddress']);  // Get All Addresses
+        Route::post('/', [Api\AddressController::class, 'createAddress']);     // Create New Address
+        Route::post('/update/{id}', [Api\AddressController::class, 'updateAddress']); // Update Address
+        Route::delete('/{id}', [Api\AddressController::class, 'deleteAddress']); // Delete Address
+    });
 });
-// });
 
 
 
