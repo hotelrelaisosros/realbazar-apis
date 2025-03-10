@@ -61,6 +61,10 @@ changes on admin panel
 
 put the images for the orders correct ones 
 put order details page complete 
+put the order address details 
+
+implement sub_cat = 2 
+
 put websockets to handle emailing in stripe 
 
 run a scedular for jobs on laravel host 
@@ -77,3 +81,9 @@ Can you please create Below APIs.
 3. Address List
 4. Delete Address
 5. Update Address
+
+
+check the simple/get_products 
+
+
+

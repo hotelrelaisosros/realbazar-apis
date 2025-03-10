@@ -36,7 +36,6 @@ class CartController extends Controller
     public function addToCart(Request $request)
     {
         $valid = Validator::make($request->all(), [
-
             'product_id' => 'required|numeric|exists:products,id',
             'product_image_id' => 'nullable|numeric|exists:product_images,id',
             'variation_id' => 'nullable|numeric|exists:product_variations,id',
@@ -47,7 +46,6 @@ class CartController extends Controller
             'gem_stone' => 'nullable|numeric|exists:gem_stones,id',
             'metal_kerat' => 'nullable|integer|exists:metal_kerate,id',
             'clarity' => 'nullable|integer|exists:clarities,id',
-
         ]);
 
         if ($valid->fails()) {
@@ -213,12 +211,14 @@ class CartController extends Controller
         if ($request["variation_id"] == null || $request["variation_id"] == "" || !isset($request["variation_id"])) {
             $existingItemNonRing = CartItem::where('user_id', $user)
                 ->where('product_id', $product->id)
+                ->whereNull('variant_id')
                 ->first();
-            if ($existingItemNonRing) {
-                $cart = CartItem::find($existingItemNonRing->id);
-                $cart->quantity += 1;
-                $cart->price = $cart->quantity * $cart->initial_price;
-                $cart->save();
+            if (!$isRing && !$isBrac && $existingItemNonRing) {
+                // leave sub_cat 1 and sub_cat 2 
+
+                // $cart = CartItem::find($existingItemNonRing->id);
+                $existingItemNonRing->increment('quantity');
+                $existingItemNonRing->update(['price' => $existingItemNonRing->quantity * $existingItemNonRing->initial_price]);
             } else {
                 $cart_item = CartItem::create([
                     'user_id' => $user,
