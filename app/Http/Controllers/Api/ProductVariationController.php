@@ -60,8 +60,8 @@ class ProductVariationController extends Controller
             'size' => 'nullable|string|max:255',
             'stock' => 'nullable|integer|min:0',
             'price' => 'nullable|numeric|min:0',
-            'metal_type_id' => 'nullable|numeric',
-            'gem_shape_id' => 'nullable|numeric',
+            'metal_type_id' => 'nullable',
+            'gem_shape_id' => 'nullable',
         ]);
 
         if ($valid->fails()) {
