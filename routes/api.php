@@ -305,12 +305,16 @@ Route::prefix('api/v1')->group(function () {
         });
         Route::prefix('metal_karate')->group(function () {
             Route::get('/', [Api\MetalKeratController::class, 'index']);
+            Route::get('/var/{id}', [Api\MetalKeratController::class, 'getVariant']);
+
             Route::post('/', [Api\MetalKeratController::class, 'store']);
             Route::get('/{id}', [Api\MetalKeratController::class, 'show']);
             Route::post('/update/{id}', [Api\MetalKeratController::class, 'update']);
             Route::delete('/{id}', [Api\MetalKeratController::class, 'destroy']);
         });
         Route::prefix('clarity')->group(function () {
+            Route::get('/var/{id}', [Api\ClarityController::class, 'getVariant']);
+
             Route::get('/', [Api\ClarityController::class, 'index']);
             Route::post('/', [Api\ClarityController::class, 'store']);
             Route::get('/{id}', [Api\ClarityController::class, 'show']);
@@ -501,8 +505,11 @@ Route::get('/enums/getFaceting', [Api\ProductEnumController::class, 'getFaceting
 
 Route::get('/serve-file/{filename}', [Api\FileController::class, 'serveFile'])->name('serve-file');
 
-Route::get('/receipt/{id}', [Api\InvoiceController::class, 'generateReceipt'])->name('pdf.receipt');
-Route::get('/invoice/{id}', [Api\InvoiceController::class, 'generateInvoice'])->name('pdf.invoice');
+Route::get('/receipt/{id}', [Api\InvoiceController::class, 'generateReceiptId'])->name('pdf.receipt');
+Route::get('/invoice/{id}', [Api\InvoiceController::class, 'generateInvoiceId'])->name('pdf.invoice');
+
+Route::get('/pid/receipt/{id}', [Api\InvoiceController::class, 'generateReceiptpId'])->name('pdf.receipt');
+Route::get('/pid/invoice/{id}', [Api\InvoiceController::class, 'generateInvoicepId'])->name('pdf.invoice');
 
     //ring_customizaiton_page1:
 

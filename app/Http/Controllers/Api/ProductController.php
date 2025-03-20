@@ -645,7 +645,7 @@ class ProductController extends Controller
             'product_single_image' => 'nullable',
             'product_multiple_images' => 'nullable|array',
             'variations' => 'nullable',
-            'tags' => 'required',
+            'tags' => 'nullable',
             'sub_category_id' => 'required',
             // 'brand' => 'required',
             // 'product_status' => 'required',
@@ -893,7 +893,7 @@ class ProductController extends Controller
     {
         $valid = Validator::make($request->all(), [
             'variant_id' => 'nullable|exists:product_variations,id',
-            'product_id' => 'required|exists:products,id',
+            'product_id' => 'nullable|exists:products,id',
         ]);
 
         if ($valid->fails()) {
@@ -904,10 +904,16 @@ class ProductController extends Controller
             ]);
         }
 
-        $all_image = ProductImage::where('product_id', $request["product_id"]);
-        if (!empty($request["variant_id"])) {
-            $all_image->where('variant_id', $request["variant_id"]);
+        $all_image = collect();
+
+        if (empty($request["variant_id"]) && !empty($request["product_id"])) {
+            $all_image = ProductImage::where('product_id', $request["product_id"]);
+        } elseif (!empty($request["variant_id"]) && empty($request["product_id"])) {
+            $all_image = ProductImage::where('variant_id', $request["variant_id"]);
+        } elseif (!empty($request["variant_id"]) && !empty($request["product_id"])) {
+            $all_image = ProductImage::where('variant_id', $request["variant_id"])->where('product_id', $request["product_id"]);
         }
+
         $all_image = $all_image->get();
 
 
@@ -915,10 +921,17 @@ class ProductController extends Controller
         $formattedImages = $productHelper->formatProductImages($all_image);
 
         if ($formattedImages->isNotEmpty()) {
-            return response()->json(['status' => true, 'message' => 'Product Image found', 'images' => $formattedImages], 200);
+            return response()->json([
+                'status' => true,
+                'message' => 'Product Image found',
+                'images' => $formattedImages
+            ], 200);
         }
 
-        return response()->json(['status' => false, 'message' => 'Product Image not found'], 404);
+        return response()->json([
+            'status' => false,
+            'message' => 'Product Image not found'
+        ], 404);
     }
 
     public function image($productId)
@@ -964,7 +977,7 @@ class ProductController extends Controller
     public function addImage(Request $request)
     {
         $valid = Validator::make($request->all(), [
-            'product_id' => 'required|numeric|exists:products,id',
+            'product_id' => 'nullable|numeric|exists:products,id',
             'product_single_image' => 'required|image|mimes:jpg,jpeg,png',
             'product_multiple_images' => 'nullable|array',
             'product_multiple_images.*' => 'image|mimes:jpg,jpeg,png',
@@ -981,29 +994,22 @@ class ProductController extends Controller
         try {
             $this->check_product_exists($valid['product_id']);
 
-
-            // if ($checkVariantExists) {
-            //     return response()->json(['status' => false, 'Message' => 'Image already exists for this variant'], 404);
-            // }
-
-            // $checkVariantProduct = ProductVariation::find($request['variant_id']);
-            // if ($checkVariantProduct->product_id !== $request['product_id']) {
-            //     return response()->json(['status' => false, 'Message' => 'You are providing the wrong product ID for the variation'], 404);
-            // }
-            // if (!$isRing) {
-            //     $checkImage = ProductImage::where("product_id", $valid["product_id"])->first();
-            //     if ($checkImage) {
-            //         return response()->json(['status' => false, 'Message' => 'Cannot add more than one image for non-ring products'], 400);
-            //     }
-            // }
             $product_image = new ProductImage();
-            $product_image->product_id = $request->product_id;
 
-            $product_image->variant_id = $request->variant_id ?? null;
+            if (!empty($request->variant_id)) {
+                $product_image->variant_id = $request->variant_id;
+                $product_image->product_id = ProductVariation::where('id', $request->variant_id)->value('product_id');
+            } elseif (!empty($request->product_id)) {
+                $product_image->variant_id = null;
+                $product_image->product_id = $request->product_id;
+            } else {
+                return response()->json(['status' => false, 'Message' => "Pass a product_id or variant_id"], 404);
+            }
+
 
             if ($request->hasFile('product_single_image')) {
                 // Ensure the product directory exists
-                $productDir = 'product/' . $request->product_id;
+                $productDir = 'product/' . ($request->product_id ?? $request->variant_id);
                 if (!Storage::disk('public')->exists($productDir)) {
                     Storage::disk('public')->makeDirectory($productDir);
                 }
@@ -1011,20 +1017,6 @@ class ProductController extends Controller
                 $filename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
                 $request->product_single_image->storeAs($productDir, $filename, "public");
                 $product_image->image = $productDir . "/" . $filename;
-
-                // if ($isRing) {
-                //     $product_image->name = $valid["name"];
-
-                //     // Ensure the small-icon directory exists
-                //     $smallIconDir = $productDir . "/small-icon";
-                //     if (!Storage::disk('public')->exists($smallIconDir)) {
-                //         Storage::disk('public')->makeDirectory($smallIconDir);
-                //     }
-
-                //     $smallImageFilename = "Product-" . time() . "-" . rand() . "." . $request->product_single_image->getClientOriginalExtension();
-                //     $request->product_single_image->storeAs($smallIconDir, $smallImageFilename, "public");
-                //     $product_image->small_image = $smallIconDir . "/" . $smallImageFilename;
-                // }
             }
 
             $multiple_images = [];

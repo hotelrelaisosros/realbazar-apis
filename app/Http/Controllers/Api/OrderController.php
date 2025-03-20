@@ -212,7 +212,11 @@ class OrderController extends Controller
                     $orderProduct->variant_id = $cartItem->variant_id ?? null;
                     $orderProduct->qty = $cartItem->quantity;
                     $orderProduct->product_price = $cartItem->price;
+                    $orderProduct->subtotal = $cartItem->price;
                     $orderProduct->customizables = $cartItem->attributes;
+                    // discount
+                    $orderProduct->discount = $cartItem->discount ?? 0;
+                    //
                     $total += $cartItem->price;
                     $orderProduct->save();
                 }
@@ -221,13 +225,13 @@ class OrderController extends Controller
                 // CartItem::whereIn('id', $orders['cart_ids'])->where('user_id', $user_id)->delete();
             }
             if ($total < 0) throw new Error("Order Request Failed because your total amount is 0!");
-            if ($request->pay_status == "unpaid") {
+            if ($request->payment_method == "cash") {
                 $payment = new Payment();
                 $payment->payment_method = $request->payment_method;
                 $payment->total = $total;
                 $payment->txt_refno = $request->txt_refno;
                 $payment->response_code = $request->response_code;
-                $payment->response_message = $request->response_message;
+                $payment->response_message = "unpaid";
                 $payment->save();
                 $payment->orders()->sync($order_ids);
                 // if ($request->response_code == 000 || $request->response_code == 0000) {
@@ -241,12 +245,12 @@ class OrderController extends Controller
                 $appnot->save();
                 // NotiSend::sendNotif($user->device_token, '', $title, $message);
                 DB::commit();
-                return response()->json(['status' => true, 'Message' => 'New Order Placed!'], 200);
+                return response()->json(['status' => true, 'Message' => 'New Order Placed with cash'], 200);
                 // else {
                 //     DB::commit();
                 //     return response()->json(['status' => false, 'Message' => 'Order Failed!']);
                 // }
-            } else {
+            } elseif ($request->payment_method == "credit_card") {
                 $payment = new Payment();
                 $payment->payment_method = $request->payment_method;
                 $payment->total = $total;
@@ -334,6 +338,14 @@ class OrderController extends Controller
                         'success_url' => route('checkout', ['order' => $order->id]),
                         'cancel_url'  => route('checkout', ['order' => $order->id]),
                     ]);
+                    // $paymentIntentId = $session->payment_intent ?? null;
+
+
+                    // if ($paymentIntentId) {
+                    //     $payment->update([
+                    //         'txt_refno' => $paymentIntentId
+                    //     ]);
+                    // }
 
                     return response()->json([
                         'status'        => true,
@@ -342,6 +354,8 @@ class OrderController extends Controller
                         'order_id'      => $order->id,
                         'payment_link'  => $session->url,
                         'session_id'    => $session->id,
+                        // 'payment_intent'    => $session->payment_intent,
+
                     ], 200);
                 }
                 return response()->json(['status' => true, 'Message' => 'New Order Placed!',  'order' => $order, 'order_id' => $order->id], 200);
@@ -366,16 +380,24 @@ class OrderController extends Controller
         }
         $skip = $request->skip;
         $take = $request->take;
-        $role = $request->role;
+        $role = strtolower($request->role);
         $search = $request->search;
-        $status = $request->status;
-        $order = Order::orderBy('id', 'DESC')->with(['user_orders.products.images', 'user_payments.payments', 'users.role'])->where('pay_status', 'paid');
-        $order_count = Order::with(['user_orders.products.images', 'user_payments.payments', 'users.role'])->where('pay_status', 'paid');
+        $status = strtolower($request->status);
+
+        $pay_status = strtolower($request->pay_status);
+        $order = Order::orderBy('id', 'DESC')->with(['user_orders.products', 'user_orders.variation', 'user_payments.payments', 'users.role', 'addresses', 'user_orders.product_images']);
+        $order_count = Order::with(['user_orders.products.images', 'user_payments.payments', 'users.role']);
+        // ->where('pay_status', 'paid');
 
 
 
         // print_r($order);
         //check order status
+
+        if (!empty($pay_status)) {
+            $order->where('pay_status', $pay_status);
+            $order_count->where('pay_status', $pay_status);
+        }
         if (!empty($status)) {
             $order->where('status', $status);
             $order_count->where('status', $status);
@@ -415,89 +437,89 @@ class OrderController extends Controller
         $orders = $order->skip($skip)->take($take)->get();
         $orders_counts = $order_count->count();
 
-        $orders->transform(function ($order) {
-            $order->user_orders->transform(function ($orderProduct) {
+        // $orders->transform(function ($order) {
+        //     $order->user_orders->transform(function ($orderProduct) {
 
 
-                //do product image migrations
-                if ($orderProduct->metal_type_id) {
+        //         //do product image migrations
+        //         if ($orderProduct->metal_type_id) {
 
-                    //wont be needed 
-                    $query = "
-                        SELECT pi.name, pi.image 
-                        FROM product_images pi
-                        JOIN order_products op ON pi.product_id = op.product_id
-                        WHERE op.product_id = ? 
-                          AND pi.id = ?
-                    ";
+        //             //wont be needed 
+        //             $query = "
+        //                 SELECT pi.name, pi.image 
+        //                 FROM product_images pi
+        //                 JOIN order_products op ON pi.product_id = op.product_id
+        //                 WHERE op.product_id = ? 
+        //                   AND pi.id = ?
+        //             ";
 
-                    $materials = DB::select($query, [
-                        $orderProduct->product_id,
-                        $orderProduct->metal_type_id
-                    ]);
+        //             $materials = DB::select($query, [
+        //                 $orderProduct->product_id,
+        //                 $orderProduct->metal_type_id
+        //             ]);
 
 
-                    if (!empty($materials)) {
-                        $material = $materials[0];
-                        $metal_type = [
-                            "name" => $material->name,
-                            "image" => $this->formatImageUrl($material->image),
-                        ];
-                    }
-                }
-                if ($orderProduct->bespoke_customization_types_id) {
-                    $query = "
-                    SELECT bt.*, bc.name 
-                    FROM bespoke_customization_types bt
-                    JOIN bespoke_customizations bc ON bt.bespoke_customization_id = bc.id
-                    WHERE bt.id = ?
-                ";
+        //             if (!empty($materials)) {
+        //                 $material = $materials[0];
+        //                 $metal_type = [
+        //                     "name" => $material->name,
+        //                     "image" => $this->formatImageUrl($material->image),
+        //                 ];
+        //             }
+        //         }
+        //         if ($orderProduct->bespoke_customization_types_id) {
+        //             $query = "
+        //             SELECT bt.*, bc.name 
+        //             FROM bespoke_customization_types bt
+        //             JOIN bespoke_customizations bc ON bt.bespoke_customization_id = bc.id
+        //             WHERE bt.id = ?
+        //         ";
 
-                    $bespokeResults = DB::select($query, [$orderProduct->bespoke_customization_types_id]);
+        //             $bespokeResults = DB::select($query, [$orderProduct->bespoke_customization_types_id]);
 
-                    $bespoke = !empty($bespokeResults) ? $bespokeResults[0] : null;
-                }
+        //             $bespoke = !empty($bespokeResults) ? $bespokeResults[0] : null;
+        //         }
 
-                //do product image migrations
-                $orderProduct->customizables = [
-                    'metal_type' => $metal_type ?? null,
-                    'gem_shape' => $orderProduct->gem_shape_id ? GemShape::find($orderProduct->gem_shape_id) : null,
-                    'band_width' => $orderProduct->band_width_id ? BandWidth::find($orderProduct->band_width_id) : null,
-                    'accent_stone_type' => $orderProduct->accent_stone_type_id ? AccentStoneTypes::find($orderProduct->accent_stone_type_id) : null,
-                    'setting_height' => $orderProduct->setting_height_id ? SettingHeight::find($orderProduct->setting_height_id) : null,
-                    'prong_style' => $orderProduct->prong_style_id ? ProngStyle::find($orderProduct->prong_style_id) : null,
-                    'ring_size' => $orderProduct->ring_size_id ? RingSize::find($orderProduct->ring_size_id) : null,
-                    'bespoke_customization_type' => $bespoke ?? null,
-                    'birth_stone' => $orderProduct->birth_stone_id ? BirthStone::find($orderProduct->birth_stone_id) : null,
-                    'gem_stone' => $orderProduct->gem_stone_id ? GemStone::find($orderProduct->gem_stone_id) : null,
-                    'gem_stone_color' => $orderProduct->gem_stone_color_id ? GemStoneColor::find($orderProduct->gem_stone_color_id) : null,
-                    'engraved_text' => $orderProduct->engraved_text,
-                    'metal_type_karat' => $orderProduct->metal_type_karat,
-                ];
+        //         //do product image migrations
+        //         $orderProduct->customizables = [
+        //             'metal_type' => $metal_type ?? null,
+        //             'gem_shape' => $orderProduct->gem_shape_id ? GemShape::find($orderProduct->gem_shape_id) : null,
+        //             'band_width' => $orderProduct->band_width_id ? BandWidth::find($orderProduct->band_width_id) : null,
+        //             'accent_stone_type' => $orderProduct->accent_stone_type_id ? AccentStoneTypes::find($orderProduct->accent_stone_type_id) : null,
+        //             'setting_height' => $orderProduct->setting_height_id ? SettingHeight::find($orderProduct->setting_height_id) : null,
+        //             'prong_style' => $orderProduct->prong_style_id ? ProngStyle::find($orderProduct->prong_style_id) : null,
+        //             'ring_size' => $orderProduct->ring_size_id ? RingSize::find($orderProduct->ring_size_id) : null,
+        //             'bespoke_customization_type' => $bespoke ?? null,
+        //             'birth_stone' => $orderProduct->birth_stone_id ? BirthStone::find($orderProduct->birth_stone_id) : null,
+        //             'gem_stone' => $orderProduct->gem_stone_id ? GemStone::find($orderProduct->gem_stone_id) : null,
+        //             'gem_stone_color' => $orderProduct->gem_stone_color_id ? GemStoneColor::find($orderProduct->gem_stone_color_id) : null,
+        //             'engraved_text' => $orderProduct->engraved_text,
+        //             'metal_type_karat' => $orderProduct->metal_type_karat,
+        //         ];
 
-                // Remove the original fields
-                unset(
-                    $orderProduct->metal_type_id,
-                    $orderProduct->gem_shape_id,
-                    $orderProduct->band_width_id,
-                    $orderProduct->accent_stone_type_id,
-                    $orderProduct->setting_height_id,
-                    $orderProduct->prong_style_id,
-                    $orderProduct->ring_size_id,
-                    $orderProduct->bespoke_customization_types_id,
-                    $orderProduct->birth_stone_id,
-                    $orderProduct->gem_stone_id,
-                    $orderProduct->gem_stone_color_id,
+        //         // Remove the original fields
+        //         unset(
+        //             $orderProduct->metal_type_id,
+        //             $orderProduct->gem_shape_id,
+        //             $orderProduct->band_width_id,
+        //             $orderProduct->accent_stone_type_id,
+        //             $orderProduct->setting_height_id,
+        //             $orderProduct->prong_style_id,
+        //             $orderProduct->ring_size_id,
+        //             $orderProduct->bespoke_customization_types_id,
+        //             $orderProduct->birth_stone_id,
+        //             $orderProduct->gem_stone_id,
+        //             $orderProduct->gem_stone_color_id,
 
-                    $orderProduct->engraved_text,
-                    $orderProduct->metal_type_karat
-                );
+        //             $orderProduct->engraved_text,
+        //             $orderProduct->metal_type_karat
+        //         );
 
-                return $orderProduct;
-            });
+        //         return $orderProduct;
+        //     });
 
-            return $order;
-        });
+        //     return $order;
+        // });
 
 
 

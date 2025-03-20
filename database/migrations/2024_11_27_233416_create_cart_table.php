@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('cart_id');
             $table->string('name');
             $table->float('initial_price')->default(0.00);
-
+            $table->float('discount')->default(0.00);
             $table->float('price')->default(0.00);
             $table->integer('quantity')->default(1); // Quantity of the product
             $table->json('attributes')->nullable(); // Store attributes as JSON

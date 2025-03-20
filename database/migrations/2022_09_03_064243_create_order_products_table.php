@@ -23,9 +23,9 @@ return new class extends Migration
 
             $table->unsignedBigInteger('cart_id');
 
-            $table->string('subtotal')->nullable();
-            $table->string('discount')->nullable();
-            $table->string('qty')->nullable();
+            $table->float('subtotal')->default(0.00);
+            $table->float('discount')->default(0.00);
+            $table->unsignedBigInteger('qty');
             $table->string('size')->nullable();
             $table->float('product_price')->default(0.00);
             $table->float('initial_price')->default(0.00);
@@ -34,7 +34,7 @@ return new class extends Migration
             $table->foreign('product_id')->references('id')->on('products');
             $table->foreign('variant_id')->references('id')->on('product_variations');
 
-            $table->unsignedBigInteger('customizables')->nullable();
+            $table->json('customizables')->nullable();
 
 
 

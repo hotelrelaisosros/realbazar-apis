@@ -155,7 +155,11 @@ class CartController extends Controller
         $customizables = [];
 
         if ($isRing) {
-            $customizables = $this->getCustomizablesFromRequest($request);
+            $customizables = $this->getCustomizablesFromRequestisRing($request);
+        }
+
+        if ($isBrac) {
+            $customizables  = ["metal_kerat" => $request["metal_kerat"], "clarity" => $request["clarity"]];
         }
 
         // try {
@@ -199,10 +203,6 @@ class CartController extends Controller
                 'variation' => $variation ?? [],
             ];
         }
-
-
-
-
 
         // Check if the product is already in the cart
 
@@ -257,6 +257,8 @@ class CartController extends Controller
                     'name' => $product->title,
                     'price' => $price_counter,
                     'initial_price' => $initial_price,
+                    'discount' => $request["discount"] ?? 0,
+
                     'quantity' => 1,
                     'attributes' => json_encode($customizables),
                     'customizables' => json_encode($models),
@@ -274,6 +276,8 @@ class CartController extends Controller
                     'price' => $price_counter,
                     'initial_price' => $initial_price,
                     'quantity' => 1,
+                    'discount' => $request["discount"] ?? 0,
+
                     'attributes' => json_encode($customizables),
                     'customizables' => json_encode($models),
                     'created_at' => now(),
@@ -294,6 +298,8 @@ class CartController extends Controller
                     'initial_price' => $price_counter,
                     'name' => $product->title,
                     'price' => $price_counter,
+                    'discount' => $request["discount"] ?? 0,
+
                     'quantity' => 1,
                     'attributes' => json_encode($customizables),
                     'customizables' => json_encode($models),
@@ -316,7 +322,7 @@ class CartController extends Controller
 
 
 
-    private function getCustomizablesFromRequest(Request $request): array
+    private function getCustomizablesFromRequestisRing(Request $request): array
     {
         return [
             'metal_type' => $request->metal_type ?? null,
@@ -334,7 +340,6 @@ class CartController extends Controller
             'engraved_text' => $request->engraved_text ?? null,
             'metal_type_karat' => $request->metal_type_karat ?? null,
             'faceting_id' => $request->faceting_id ?? null,
-
         ];
     }
 

@@ -10,20 +10,56 @@ use App\Models\Order;
 
 class InvoiceController extends Controller
 {
-    public function generateInvoice($id)
+    public function generateInvoiceId($id)
     {
-        $order = Order::with(['user_orders.products', 'user_orders.variation', 'user_payments.payments'])->findOrFail($id);
+        $order = Order::with(['user_orders.products', 'user_orders.variation', 'user_payments.payments'])->where('id', $id);
 
         $pdf = Pdf::loadView('pdf.invoice', compact('order'));
 
         return $pdf->stream('invoice_' . $id . '.pdf');
     }
 
-    public function generateReceipt($id)
+    public function generateReceiptId($id)
     {
-        $order = Order::with(['user_orders.products', 'user_orders.variation', 'user_payments.payments'])->findOrFail($id);
+        $order = Order::with(['user_orders.products', 'user_orders.variation', 'user_payments.payments'])->where(
+            'id',
+            $id
+        );
 
-        $pdf = Pdf::loadView('pdf.receipt', compact('order'));
+        $pdf = Pdf::loadView('pdf.receipts', compact('order'));
+
+        return $pdf->download('receipt_' . $id . '.pdf');
+    }
+
+    public function generateInvoicepId($id)
+    {
+        $order = Order::with([
+            'user_orders.products',
+            'user_orders.variation',
+            'user_payments.payments'
+        ])
+            ->whereHas('user_payments.payments', function ($query) use ($id) {
+                $query->where('txt_refno', $id);
+            })
+            ->first();
+        $pdf = Pdf::loadView('pdf.invoice', compact('order'));
+
+        return $pdf->stream('invoice_' . $id . '.pdf');
+    }
+
+    public function generateReceiptpId($id)
+    {
+        $order = Order::with([
+            'user_orders.products',
+            'user_orders.variation',
+            'user_payments.payments'
+        ])
+            ->whereHas('user_payments.payments', function ($query) use ($id) {
+                $query->where('txt_refno', $id);
+            })
+            ->first();
+
+        $pdf = Pdf::loadView('pdf.receipts', compact('order'));
 
         return $pdf->download('receipt_' . $id . '.pdf');
     }

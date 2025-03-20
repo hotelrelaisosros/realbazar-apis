@@ -285,6 +285,7 @@ class StripeController extends Controller
                                     $payment->update([
                                         'txt_refno' => $retrievedPaymentIntent->id,
                                         'response_code' => $chargeId,
+                                        'response_message' => "paid"
                                     ]);
                                 }
 

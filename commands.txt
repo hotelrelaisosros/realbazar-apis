@@ -22,6 +22,10 @@ setup jobs on server to remove tokens
 implement email you have left your cart open
 send product images with the product on frontend 
 Order invoices 
+put websockets to handle emailing in stripe 
+run a scedular for jobs on laravel host 
+
+
 
 
 //tables taking price
@@ -65,25 +69,11 @@ put the order address details
 
 implement sub_cat = 2 
 
-put websockets to handle emailing in stripe 
-
-run a scedular for jobs on laravel host 
-
-put paid and unpaid orders on 
-show the pdfs of purchase receipts on admin panel / generate pdfs 
 
 
-Hi @Adam She 
-Can you please create Below APIs.
-1. Order detail (Input as Order ID)
-2. Card List
-3. Delete Card
-3. Address List
-4. Delete Address
-5. Update Address
 
 
-check the simple/get_products 
+
 
 
 

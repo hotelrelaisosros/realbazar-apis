@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\Gemshape;
 use App\Models\MetalTypeCategory;
+use App\Models\Product;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ProductVariationAdminResource extends JsonResource
@@ -19,6 +20,8 @@ class ProductVariationAdminResource extends JsonResource
         return [
             "id" => $this->id,
             "product_id" => $this->product_id,
+            "is_ring_one" => Product::isRing($this->product_id)->exists() ? true : false,
+            "is_ring_two" => Product::isBrac($this->product_id)->exists() ? true : false,
             "title" => $this->title,
             "size" => $this->size,
             "stock" => $this->stock,

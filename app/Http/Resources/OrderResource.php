@@ -26,8 +26,10 @@ class OrderResource extends JsonResource
             'pay_status' => $this->pay_status,
             'user' => $this->users,
             // 'seller' => $this->seller,
-            'order_products' => $this->user_orders,
-            'payment' => $this->user_payments,
+            'order_products' => OrderProductResource::collection($this->user_orders),
+            'address' => new AddressResource($this->addresses),
+            'payment' => new PaymentResource(optional($this->user_payments->first())),
+            'created_at' => $this->created_at
         ];
     }
 }

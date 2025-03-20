@@ -8,15 +8,30 @@ use App\Models\Clarity;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreClarityRequest;
 use App\Http\Requests\UpdateClarityRequest;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class ClarityController extends Controller
 {
     public function index()
     {
-        return response()->json(Clarity::all(), 200);
+        return response()->json(['message' => "succesfully found clarity",  'data' => Clarity::all()], 200);
     }
 
+    public function getVariant($id)
+    {
+        $validator = Validator::make(['variant_id' => $id], [
+            'variant_id' => 'nullable|exists:product_variations,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $kerate = DB::table('clarities')->where('variant_id', $id)->get();
+
+        return response()->json(['message' => 'Clarity fetched successfully', 'data' => $kerate], 200);
+    }
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -41,7 +56,7 @@ class ClarityController extends Controller
             return response()->json(['message' => 'Clarity not found'], 404);
         }
 
-        return response()->json($clarity, 200);
+        return response()->json(['clarity' => $clarity], 200);
     }
 
     public function update(Request $request, $id)

@@ -18,6 +18,8 @@ class PaymentResource extends JsonResource
             'payment_method'  => $this->payments->payment_method,
             'total'           => $this->payments->total,
             'response_message' => $this->payments->response_message,
+            'payment_intent' => $this->payments->txt_refno,
+
         ];
     }
 }
