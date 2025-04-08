@@ -3,6 +3,10 @@
 /public/build
 /public/hot
 /public/storage
+/.github/workflows
+/.github/workflows/*.yml
+/.github/*
+/.github
 /storage/*.key
 /public/storage
 /vendor
