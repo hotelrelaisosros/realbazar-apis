@@ -15,9 +15,10 @@ return new class extends Migration
     {
         Schema::create('clarities', function (Blueprint $table) {
             $table->id();
-            $table->string("clarity");
+            $table->string("name");
+            $table->string("image");
             $table->float("price")->default(0.0);
-            $table->unsignedBigInteger('variant_id')->nullable();
+            $table->unsignedBigInteger('variant_id');
             $table->foreign('variant_id')->references('id')->on('product_variations')->onDelete('cascade');
 
             $table->timestamps();

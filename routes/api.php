@@ -304,10 +304,10 @@ Route::prefix('api/v1')->group(function () {
             Route::delete('{id}', [Api\MetalTypeCategoryController::class, 'destroy']);
         });
         Route::prefix('metal_karate')->group(function () {
-            Route::get('/', [Api\MetalKeratController::class, 'index']);
+            Route::post('/', [Api\MetalKeratController::class, 'index']);
             Route::get('/var/{id}', [Api\MetalKeratController::class, 'getVariant']);
 
-            Route::post('/', [Api\MetalKeratController::class, 'store']);
+            Route::post('/create', [Api\MetalKeratController::class, 'store']);
             Route::get('/{id}', [Api\MetalKeratController::class, 'show']);
             Route::post('/update/{id}', [Api\MetalKeratController::class, 'update']);
             Route::delete('/{id}', [Api\MetalKeratController::class, 'destroy']);
@@ -510,6 +510,10 @@ Route::get('/invoice/{id}', [Api\InvoiceController::class, 'generateInvoiceId'])
 
 Route::get('/pid/receipt/{id}', [Api\InvoiceController::class, 'generateReceiptpId'])->name('pdf.receipt');
 Route::get('/pid/invoice/{id}', [Api\InvoiceController::class, 'generateInvoicepId'])->name('pdf.invoice');
+
+
+Route::get('/ring2/get_stone_types', [Api\ClarityController::class, 'showStoneType']);
+Route::get('/ring2/get_stone_size', [Api\ClarityController::class, 'getRingSizes']);
 
     //ring_customizaiton_page1:
 

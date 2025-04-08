@@ -10,9 +10,18 @@ use Illuminate\Support\Facades\Validator;
 
 class MetalKeratController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(['message' => 'MetalKerat created successfully', 'data' => MetalKerat::all()], 200);
+        $validator = Validator::make($request->all(), [
+            'stone_type' => 'required|string|in:LM,D',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+        $kerate  = DB::table('metal_kerate')->where('stone_type', $request->stone_type)->get();
+
+        return response()->json(['status' => true, 'message' => 'MetalKerat fetched successfully', 'data' => $kerate], 200);
     }
     public function getVariant($id)
     {
@@ -34,6 +43,7 @@ class MetalKeratController extends Controller
         $validator = Validator::make($request->all(), [
             'kerate' => 'required|numeric|min:0',
             'price' => 'required|numeric|min:0',
+            'stone_type' => 'required|string|in:LM,D',
             'variant_id' => 'nullable|exists:product_variations,id',
         ]);
 
@@ -62,6 +72,7 @@ class MetalKeratController extends Controller
         $validator = Validator::make($request->all(), [
             'kerate' => 'nullable|numeric|min:0',
             'price' => 'nullable|numeric|min:0',
+            'stone_type' => 'required|string|in:LM,D',
             'variant_id' => 'nullable|exists:product_variations,id',
         ]);
 
@@ -75,7 +86,7 @@ class MetalKeratController extends Controller
         }
 
         $originalData = MetalKerat::where('id', $id)->first()->toArray();
-        $updatedData = $request->only(['kerate', 'price', 'variant_id']);
+        $updatedData = $request->only(['kerate', 'price', 'variant_id', 'stone_type']);
 
         if (array_intersect_assoc($originalData, $updatedData) === $updatedData) {
             return response()->json(['message' => 'No changes detected'], 404);

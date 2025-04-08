@@ -50,24 +50,13 @@ git push -u origin main
 
 
 
-works for host service 
-put order details page complete 
 put websockets to handle emailing in stripe 
-
-
-
-
 
 
 
 changes on admin panel
 
-
-put the images for the orders correct ones 
-put order details page complete 
-put the order address details 
-
-implement sub_cat = 2 
+fix the image variations add
 
 
 

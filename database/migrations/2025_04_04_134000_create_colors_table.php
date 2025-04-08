@@ -13,15 +13,8 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('metal_kerate', function (Blueprint $table) {
+        Schema::create('colors', function (Blueprint $table) {
             $table->id();
-            $table->float("kerate")->default(0.0);
-            $table->enum('stone_type', ['LM', 'D']);
-
-            $table->float("price")->default(0.0);
-            $table->unsignedBigInteger('variant_id')->nullable();
-            $table->foreign('variant_id')->references('id')->on('product_variations')->onDelete('cascade');
-
             $table->timestamps();
         });
     }
@@ -33,6 +26,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('metal_kerate');
+        Schema::dropIfExists('colors');
     }
 };

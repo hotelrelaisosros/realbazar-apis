@@ -300,11 +300,13 @@ class ProductSeeder extends Seeder
                     'variant_id' => 5,
                     'kerate' => rand(1, 10),
                     'price' => rand(100, 1000),
+                    'stone_type' => 'LM',
                 ]);
 
                 Clarity::create([
                     'variant_id' => 5,
-                    'clarity' => 'VVS' . rand(1, 2),
+                    'name' => 'VVS' . rand(1, 2),
+                    'image' => 'image.jpg',
                     'price' => rand(100, 1000),
                 ]);
             }
@@ -371,11 +373,14 @@ class ProductSeeder extends Seeder
                         'variant_id' => 5,
                         'kerate' => rand(1, 10),
                         'price' => rand(100, 1000),
+                        'stone_type' => 'D',
+
                     ]);
 
                     Clarity::create([
                         'variant_id' => 5,
-                        'clarity' => 'VVS' . rand(1, 2),
+                        'name' => 'VVS' . rand(1, 2),
+                        'image' => "image.jpg",
                         'price' => rand(100, 1000),
                     ]);
                 }

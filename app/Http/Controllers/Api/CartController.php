@@ -36,7 +36,7 @@ class CartController extends Controller
     public function addToCart(Request $request)
     {
         $valid = Validator::make($request->all(), [
-            'product_id' => 'required|numeric|exists:products,id',
+            'product_id' => 'nullable|numeric|exists:products,id',
             'product_image_id' => 'nullable|numeric|exists:product_images,id',
             'variation_id' => 'nullable|numeric|exists:product_variations,id',
             'bespoke_type' => ['nullable', 'array'],
@@ -59,8 +59,20 @@ class CartController extends Controller
 
 
         $validated = $valid->validated();
+        if (!isset($request["product_id"]) && !isset($request["variation_id"])) {
+            return response()->json([
+                'status' => false,
+                'Message' => 'Product ID or Product Image ID is required',
+            ]);
+        }
 
-        $product = Product::find($validated["product_id"]);
+        if (!isset($request["product_id"]) && isset($request["variation_id"])) {
+            $product = DB::table('products')->join('product_variations', 'products.id', '=', 'product_variations.product_id')->where('product_variations.id', $request["variation_id"])->select('products.*')->first();
+
+            $request["product_id"] = $product?->id;
+        } else {
+            $product = Product::find($validated["product_id"]);
+        }
 
         $variation = null;
         $productImage = null;
@@ -91,9 +103,9 @@ class CartController extends Controller
         }
         $user = auth()->user()->id;
         // Check if the product is a ring
-        $isRing =  Product::isRing($validated['product_id'])->exists();
+        $isRing =  Product::isRing($product->id)->exists();
 
-        $isBrac =  Product::isBrac($validated['product_id'])->exists();
+        $isBrac =  Product::isBrac($product->id)->exists();
 
         $metal_kerat = null;
         if (!empty($validated["metal_kerat"]) && $isBrac) {
@@ -159,7 +171,7 @@ class CartController extends Controller
         }
 
         if ($isBrac) {
-            $customizables  = ["metal_kerat" => $request["metal_kerat"], "clarity" => $request["clarity"]];
+            $customizables  = ["metal_kerat" => $request["metal_kerat"], "clarity" => $request["clarity"], "size" => $request["size"]];
         }
 
         // try {
@@ -477,11 +489,12 @@ class CartController extends Controller
                 'kerat' => isset($associatedModel['kerat']) ? [
                     'id' => $associatedModel['kerat']['id'] ?? null,
                     'kerat' => $associatedModel['kerat']['kerate'] ?? null,
+                    'stone_type' => $associatedModel['kerat']['stone_type'] ?? null,
                     'price' => $associatedModel['kerat']['price'] ?? null,
                 ] : null,
                 'clarity' => isset($associatedModel['clarity']) ? [
                     'id' => $associatedModel['clarity']['id'] ?? null,
-                    'clarity' => $associatedModel['clarity']['clarity'] ?? null,
+                    'name' => $associatedModel['clarity']['name'] ?? null,
                     'price' => $associatedModel['clarity']['price'] ?? null,
                 ] : null,
             ];
