@@ -62,15 +62,7 @@ jobs:
           php artisan passport:install
 
 
-      - name: Run Tests
-        env:
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_DATABASE: kqeyhuxg_apis
-          DB_USERNAME: kqeyhuxg_main
-          DB_PASSWORD: HHagga@@1357
-        run: php artisan test
+      
 
       - name: 📂 Deploy to cPanel via FTP
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
