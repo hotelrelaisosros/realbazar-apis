@@ -19,7 +19,7 @@ jobs:
           MARIADB_ROOT_PASSWORD: HHagga@@1357
           MARIADB_DATABASE: kqeyhuxg_apis
           MARIADB_USER: kqeyhuxg_main
-          MARIADB_PASSWORD: secret
+          MARIADB_PASSWORD: HHagga@@1357
         options: >-
           --health-cmd="mysqladmin ping --silent"
           --health-interval=10s
