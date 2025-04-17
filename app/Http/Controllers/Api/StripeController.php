@@ -235,29 +235,53 @@ class StripeController extends Controller
 
     public function handleWebhook(Request $request)
     {
-        Stripe::setApiKey(config('stripe.test.sk'));
+        // Stripe::setApiKey(config('stripe.test.sk'));
 
-        $endpoint_secret = 'whsec_f1ccc54d6e8a26288ff8b508ad6c048f2b6c26292a8a2e9efc28a1da9b68777b';
+        // $endpoint_secret = 'whsec_f1ccc54d6e8a26288ff8b508ad6c048f2b6c26292a8a2e9efc28a1da9b68777b';
 
-        $payload = @file_get_contents('php://input');
-        $sig_header = $_SERVER['HTTP_STRIPE_SIGNATURE'];
-        $event = null;
+        // $payload = @file_get_contents('php://input');
+        // $sig_header = $_SERVER['HTTP_STRIPE_SIGNATURE'];
+        // $event = null;
+
+        // try {
+        //     $event = Webhook::constructEvent(
+        //         $payload,
+        //         $sig_header,
+        //         $endpoint_secret
+        //     );
+        // } catch (\UnexpectedValueException $e) {
+        //     // Log::error('Invalid payload', ['error' => $e->getMessage()]);
+
+        //     // Invalid payload
+        //     return response('Invalid payload', 401);
+        // } catch (\Stripe\Exception\SignatureVerificationException $e) {
+        //     // Log::error('Invalid signature', ['error' => $e->getMessage()]);
+        //     return response('Invalid signature', 402);
+        // }
+        if (app()->environment('local')) {
+            // Local environment: Use test API key
+            Stripe::setApiKey(config('stripe.test.sk'));
+        } else {
+            // Production (or any non-local environment): Use live API key
+            Stripe::setApiKey(config('stripe.live.sk'));
+        }
+
+        $payload = $request->getContent();
+        $sig_header = $request->header('Stripe-Signature');
+
+        // Use CLI secret for local vs dashboard secret for production
+        $endpoint_secret = app()->environment('local')
+            ? config('stripe.test.webhook_secret')
+            : config('stripe.live.webhook_secret');
 
         try {
-            $event = Webhook::constructEvent(
-                $payload,
-                $sig_header,
-                $endpoint_secret
-            );
+            $event = \Stripe\Webhook::constructEvent($payload, $sig_header, $endpoint_secret);
         } catch (\UnexpectedValueException $e) {
-            // Log::error('Invalid payload', ['error' => $e->getMessage()]);
-
-            // Invalid payload
-            return response('Invalid payload', 401);
+            return response('Invalid payload', 400);
         } catch (\Stripe\Exception\SignatureVerificationException $e) {
-            // Log::error('Invalid signature', ['error' => $e->getMessage()]);
-            return response('Invalid signature', 402);
+            return response('Invalid signature', 400);
         }
+
 
         // Handle the event
         switch ($event->type) {

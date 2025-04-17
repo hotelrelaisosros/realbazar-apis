@@ -140,138 +140,139 @@ class OrderController extends Controller
             return response()->json(['status' => false, 'Message' => 'Validation errors', 'errors' => $valid->errors()]);
         }
         if (!empty($request->order)) {
-            // try {
-            DB::beginTransaction();
-            $order_ids = [];
-            $total = 0;
-            $latestOrderId = 0;
-            $latestOrder = Order::orderBy('created_at', 'DESC')->first();
-            $user_id = auth()->user()->id;
-            foreach ($request->order as $key => $orders) {
-                if (is_object($orders)) $orders = $orders->toArray();
-                $order = new Order();
+            try {
+                DB::beginTransaction();
+                $order_ids = [];
+                $total = 0;
+                $latestOrderId = 0;
+                $latestOrder = Order::orderBy('created_at', 'DESC')->first();
+                $user_id = auth()->user()->id;
+                foreach ($request->order as $key => $orders) {
+                    if (is_object($orders)) $orders = $orders->toArray();
+                    $order = new Order();
 
-                $order->user_id = auth()->user()->id;
-                $order->seller_id = $orders['sellerId'];
-                if (empty($latestOrder)) $latestOrderId = 0;
-                else $latestOrderId = $latestOrder->id;
-                $order->order_number =  str_pad($latestOrderId + 1, 8, "0", STR_PAD_LEFT);
-                $order->customer_name = $orders['name'];
-                $order->email = auth()->user()->email;
-                $order->phone = $orders['phone'];
-                // $order->delivery_address = $orders['address'];
-                $order->order_date = Carbon::now();
-                if (isset($orders['pay_status']) && $orders['pay_status'] == 'unpaid') $order->pay_status = 'unpaid';
+                    $order->user_id = auth()->user()->id;
+                    $order->seller_id = $orders['sellerId'];
+                    if (empty($latestOrder)) $latestOrderId = 0;
+                    else $latestOrderId = $latestOrder->id;
+                    $order->order_number =  str_pad($latestOrderId + 1, 8, "0", STR_PAD_LEFT);
+                    $order->customer_name = $orders['name'];
+                    $order->email = auth()->user()->email;
+                    $order->phone = $orders['phone'];
+                    // $order->delivery_address = $orders['address'];
+                    $order->order_date = Carbon::now();
+                    if (isset($orders['pay_status']) && $orders['pay_status'] == 'unpaid') $order->pay_status = 'unpaid';
 
-                $order->gross_amount = $orders['gross_amount'] ?? 0;
-                $order->net_amount = $orders['net_amount'] ?? 0;
-                // $order->note = $orders['note'];
+                    $order->gross_amount = $orders['gross_amount'] ?? 0;
+                    $order->net_amount = $orders['net_amount'] ?? 0;
+                    // $order->note = $orders['note'];
 
-                if (isset($orders["address_id"]) && $orders["address_id"]) {
-                    $checkAddress = Adress::find($orders["address_id"])->where('user_id', $user_id);
-                    if ($checkAddress) {
-                        $order->address_id = $orders["address_id"];
+                    if (isset($orders["address_id"]) && $orders["address_id"]) {
+                        $checkAddress = Adress::find($orders["address_id"])->where('user_id', $user_id);
+                        if ($checkAddress) {
+                            $order->address_id = $orders["address_id"];
+                        }
+                    } elseif (isset($orders["address"])) {
+                        $address = new Adress();
+                        $address->user_id = auth()->user()->id; // `auth()->id()` is a cleaner way to get user ID
+                        $address->surname = $orders["address"]["surname"] ?? null;
+                        $address->first_name = $orders["address"]["first_name"] ?? null;
+                        $address->last_name = $orders["address"]["last_name"] ?? null;
+                        $address->address = $orders["address"]["address"] ?? null;
+                        $address->street_name = $orders["address"]["street_name"] ?? null;
+                        $address->street_number = $orders["address"]["street_number"] ?? null;
+                        $address->lat = $orders["address"]["lat"] ?? null;
+                        $address->lon = $orders["address"]["lon"] ?? null;
+                        $address->address2 = $orders["address"]["address2"] ?? null;
+                        $address->country = $orders["address"]["country"] ?? null;
+                        $address->city = $orders["address"]["city"] ?? null;
+                        $address->zip = $orders["address"]["zip"] ?? null;
+                        $address->phone = $orders["address"]["phone"] ?? null;
+                        $address->phone_country_code = $orders["address"]["phone_country_code"] ?? null;
+                        $address->is_primary = $orders["address"]["is_primary"] ?? false;
+                        $address->save();
+                        $order->address_id = $address->id;
                     }
-                } elseif (isset($orders["address"])) {
-                    $address = new Adress();
-                    $address->user_id = auth()->user()->id; // `auth()->id()` is a cleaner way to get user ID
-                    $address->surname = $orders["address"]["surname"] ?? null;
-                    $address->first_name = $orders["address"]["first_name"] ?? null;
-                    $address->last_name = $orders["address"]["last_name"] ?? null;
-                    $address->address = $orders["address"]["address"] ?? null;
-                    $address->street_name = $orders["address"]["street_name"] ?? null;
-                    $address->street_number = $orders["address"]["street_number"] ?? null;
-                    $address->lat = $orders["address"]["lat"] ?? null;
-                    $address->lon = $orders["address"]["lon"] ?? null;
-                    $address->address2 = $orders["address"]["address2"] ?? null;
-                    $address->country = $orders["address"]["country"] ?? null;
-                    $address->city = $orders["address"]["city"] ?? null;
-                    $address->zip = $orders["address"]["zip"] ?? null;
-                    $address->phone = $orders["address"]["phone"] ?? null;
-                    $address->phone_country_code = $orders["address"]["phone_country_code"] ?? null;
-                    $address->is_primary = $orders["address"]["is_primary"] ?? false;
-                    $address->save();
-                    $order->address_id = $address->id;
+
+                    $order->save();
+
+                    $order_ids[] = $order->id;
+                    $cartItems = CartItem::whereIn('id', $orders['cart_ids'])
+                        ->where('user_id', $user_id)
+                        ->get();
+
+                    if ($cartItems->isEmpty()) {
+                        return response()->json(['status' => false, 'message' => 'Cart does not exist'], 404);
+                    }
+                    foreach ($cartItems as $cartItem) {
+                        $orderProduct = new OrderProduct();
+                        $orderProduct->order_id = $order->id;
+                        $orderProduct->cart_id = $cartItem->id;
+                        $orderProduct->product_id = $cartItem->product_id;
+                        $orderProduct->variant_id = $cartItem->variant_id ?? null;
+                        $orderProduct->qty = $cartItem->quantity;
+                        $orderProduct->product_price = $cartItem->price;
+                        $orderProduct->subtotal = $cartItem->price;
+                        $orderProduct->customizables = $cartItem->attributes;
+                        // discount
+                        $orderProduct->discount = $cartItem->discount ?? 0;
+                        //
+                        $total += $cartItem->price;
+                        $orderProduct->save();
+                    }
+
+                    // **Delete Cart Items After Order**
+                    // CartItem::whereIn('id', $orders['cart_ids'])->where('user_id', $user_id)->delete();
                 }
+                if ($total < 0) throw new Error("Order Request Failed because your total amount is 0!");
 
-                $order->save();
+                if ($request->payment_method == "cash") {
+                    $payment = new Payment();
+                    $payment->payment_method = $request->payment_method;
+                    $payment->total = $total;
+                    $payment->txt_refno = $request->txt_refno;
+                    $payment->response_code = $request->response_code;
+                    $payment->response_message = "unpaid";
+                    $payment->save();
+                    $payment->orders()->sync($order_ids);
+                    // if ($request->response_code == 000 || $request->response_code == 0000) {
+                    $user = User::whereRelation('role', 'name', 'admin')->first();
+                    $title = 'NEW ORDER';
+                    $message = 'You have recieved new order';
+                    $appnot = new AppNotification();
+                    $appnot->user_id = $user->id;
+                    $appnot->notification = $message;
+                    $appnot->navigation = $title;
+                    $appnot->save();
+                    // NotiSend::sendNotif($user->device_token, '', $title, $message);
+                    DB::commit();
+                    return response()->json(['status' => true, 'type' => 'cash', 'Message' => 'New Order Placed with cash'], 200);
+                    // else {
+                    //     DB::commit();
+                    //     return response()->json(['status' => false, 'Message' => 'Order Failed!']);
+                    // }
+                } elseif ($request->payment_method == "credit_card") {
+                    $payment = new Payment();
+                    $payment->payment_method = $request->payment_method;
+                    $payment->total = $total;
+                    $payment->txt_refno = "";
+                    $payment->response_code = "";
+                    $payment->response_message = "unpaid";
+                    $payment->save();
+                    $payment->orders()->sync($order_ids);
+                    // if ($request->response_code == 000 || $request->response_code == 0000) {
+                    $user = User::whereRelation('role', 'name', 'admin')->first();
+                    $title = 'NEW ORDER';
+                    $message = 'You have recieved new order';
+                    $appnot = new AppNotification();
+                    $appnot->user_id = $user->id;
+                    $appnot->notification = $message;
+                    $appnot->navigation = $title;
+                    $appnot->save();
+                    // NotiSend::sendNotif($user->device_token, '', $title, $message);
+                    DB::commit();
 
-                $order_ids[] = $order->id;
-                $cartItems = CartItem::whereIn('id', $orders['cart_ids'])
-                    ->where('user_id', $user_id)
-                    ->get();
-
-                if ($cartItems->isEmpty()) {
-                    return response()->json(['status' => false, 'message' => 'Cart does not exist'], 404);
-                }
-                foreach ($cartItems as $cartItem) {
-                    $orderProduct = new OrderProduct();
-                    $orderProduct->order_id = $order->id;
-                    $orderProduct->cart_id = $cartItem->id;
-                    $orderProduct->product_id = $cartItem->product_id;
-                    $orderProduct->variant_id = $cartItem->variant_id ?? null;
-                    $orderProduct->qty = $cartItem->quantity;
-                    $orderProduct->product_price = $cartItem->price;
-                    $orderProduct->subtotal = $cartItem->price;
-                    $orderProduct->customizables = $cartItem->attributes;
-                    // discount
-                    $orderProduct->discount = $cartItem->discount ?? 0;
-                    //
-                    $total += $cartItem->price;
-                    $orderProduct->save();
-                }
-
-                // **Delete Cart Items After Order**
-                // CartItem::whereIn('id', $orders['cart_ids'])->where('user_id', $user_id)->delete();
-            }
-            if ($total < 0) throw new Error("Order Request Failed because your total amount is 0!");
-            if ($request->payment_method == "cash") {
-                $payment = new Payment();
-                $payment->payment_method = $request->payment_method;
-                $payment->total = $total;
-                $payment->txt_refno = $request->txt_refno;
-                $payment->response_code = $request->response_code;
-                $payment->response_message = "unpaid";
-                $payment->save();
-                $payment->orders()->sync($order_ids);
-                // if ($request->response_code == 000 || $request->response_code == 0000) {
-                $user = User::whereRelation('role', 'name', 'admin')->first();
-                $title = 'NEW ORDER';
-                $message = 'You have recieved new order';
-                $appnot = new AppNotification();
-                $appnot->user_id = $user->id;
-                $appnot->notification = $message;
-                $appnot->navigation = $title;
-                $appnot->save();
-                // NotiSend::sendNotif($user->device_token, '', $title, $message);
-                DB::commit();
-                return response()->json(['status' => true, 'Message' => 'New Order Placed with cash'], 200);
-                // else {
-                //     DB::commit();
-                //     return response()->json(['status' => false, 'Message' => 'Order Failed!']);
-                // }
-            } elseif ($request->payment_method == "credit_card") {
-                $payment = new Payment();
-                $payment->payment_method = $request->payment_method;
-                $payment->total = $total;
-                $payment->txt_refno = "";
-                $payment->response_code = "";
-                $payment->response_message = "unpaid";
-                $payment->save();
-                $payment->orders()->sync($order_ids);
-                // if ($request->response_code == 000 || $request->response_code == 0000) {
-                $user = User::whereRelation('role', 'name', 'admin')->first();
-                $title = 'NEW ORDER';
-                $message = 'You have recieved new order';
-                $appnot = new AppNotification();
-                $appnot->user_id = $user->id;
-                $appnot->notification = $message;
-                $appnot->navigation = $title;
-                $appnot->save();
-                // NotiSend::sendNotif($user->device_token, '', $title, $message);
-                DB::commit();
-
-                if ($payment->payment_method == "credit_card") {
+                    // if ($payment->payment_method == "credit_card") {
                     Stripe::setApiKey(config('stripe.test.sk'));
 
                     $order = Order::with(['user_orders.products'])->find($order->id);
@@ -354,17 +355,17 @@ class OrderController extends Controller
                         'order_id'      => $order->id,
                         'payment_link'  => $session->url,
                         'session_id'    => $session->id,
+                        'type' => 'cash',
                         // 'payment_intent'    => $session->payment_intent,
 
                     ], 200);
+                    // }
                 }
-                return response()->json(['status' => true, 'Message' => 'New Order Placed!',  'order' => $order, 'order_id' => $order->id], 200);
+            } catch (\Throwable $th) {
+                DB::rollBack();
+                // throw $th;
+                return response()->json(['status' => false, 'Message' => $th->getMessage(), 'request' => $request->all()]);
             }
-            // } catch (\Throwable $th) {
-            //     DB::rollBack();
-            //     // throw $th;
-            //     return response()->json(['status' => false, 'Message' => $th->getMessage(), 'request' => $request->all()]);
-            // }
         } else return response()->json(['status' => false, 'Message' => 'Order Request Failed!', 'request' => $request->all()]);
     }
 

@@ -55,8 +55,6 @@ class ProductController extends Controller
 {
     public function get_all_ring_product_images()
     {
-
-
         $products =   Product::with(['images', 'variation', 'subCategories.categories'])
             ->where('is_delete', false)
             ->where('sub_category_id', '=', 1)
@@ -2026,16 +2024,20 @@ class ProductController extends Controller
         }
 
         $search = $request->search;
-        $products = Product::where('title', 'like', '%' . $search . '%')
-            ->with('images')
+        $products = ProductVariation::where('title', 'like', '%' . $search . '%')
+            ->with('product_images')
             ->limit(6)
             ->get();
 
+
+
         $sub_categories = SubCategory::where('name', 'like', '%' . $search . '%')->limit(3)->get();
+
+
         return response()->json([
             'status' => true,
             'message' => 'Product found',
-            'products' => ProductWithImageResource::collection($products),
+            'products' => ProductVariationResource::collection($products),
             'sub_categories' => SubCategoryResource::collection($sub_categories)
         ], 200);
     }

@@ -27,8 +27,9 @@ class ProductVariationResource extends JsonResource
 
             "total_price" => ($this->product ? $this->product->price : 0) + $this->price,
             "total_discounted_price" => ($this->product ? $this->product->price : 0) + $this->price - ($this->product ? $this->product->discount_price : 0),
-            // 'product_images' => ProductImageResource::collection($this->whenLoaded('product_images')),
-
+            "images" => $this->product_images && isset($this->product_images[0])
+                ? new ProductImageResource($this->product_images[0])
+                : null,
         ];
     }
 }
