@@ -30,6 +30,7 @@ class ProductVariationResource extends JsonResource
             "images" => $this->product_images && isset($this->product_images[0])
                 ? new ProductImageResource($this->product_images[0])
                 : null,
+            "sub_category_id" => $this->product || $this->products ? $this->products->sub_category_id : null,
         ];
     }
 }

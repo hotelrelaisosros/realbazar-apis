@@ -2025,14 +2025,16 @@ class ProductController extends Controller
 
         $search = $request->search;
         $products = ProductVariation::where('title', 'like', '%' . $search . '%')
-            ->with('product_images')
+            ->orWhereHas('product', function ($query) use ($search) {
+                $query->where('title', 'like', '%' . $search . '%');
+            })
+            ->with(['product_images', 'product'])
             ->limit(6)
             ->get();
 
 
 
         $sub_categories = SubCategory::where('name', 'like', '%' . $search . '%')->limit(3)->get();
-
 
         return response()->json([
             'status' => true,
